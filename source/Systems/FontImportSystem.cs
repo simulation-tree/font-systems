@@ -3,7 +3,6 @@ using Fonts.Events;
 using FreeType;
 using Simulation;
 using System;
-using System.Diagnostics;
 using System.Numerics;
 using Textures;
 using Unmanaged.Collections;
@@ -55,9 +54,9 @@ namespace Fonts.Systems
         /// <summary>
         /// Makes sure that the entity has the latest info about the font.
         /// </summary>
-        private void ImportFont(EntityID entity)
+        private void ImportFont(eint entity)
         {
-            UnmanagedList<byte> bytes = world.GetCollection<byte>(entity);
+            UnmanagedList<byte> bytes = world.GetList<byte>(entity);
             using FreeTypeFont face = freeType.Load(bytes.AsSpan());
             face.SetPixelSize(PixelSize, PixelSize);
 
@@ -88,15 +87,15 @@ namespace Fonts.Systems
             }
         }
 
-        private uint UpdateAtlas(FreeTypeFont font, EntityID entity)
+        private uint UpdateAtlas(FreeTypeFont font, eint entity)
         {
             //get glyph collection and reset to empty
-            if (!world.ContainsCollection<FontGlyph>(entity))
+            if (!world.ContainsList<FontGlyph>(entity))
             {
-                world.CreateCollection<FontGlyph>(entity);
+                world.CreateList<FontGlyph>(entity);
             }
 
-            UnmanagedList<FontGlyph> glyphEntities = world.GetCollection<FontGlyph>(entity);
+            UnmanagedList<FontGlyph> glyphEntities = world.GetList<FontGlyph>(entity);
 
             //collect glyph textures for each char
             Vector2 maxGlyphSize = default;
@@ -121,11 +120,11 @@ namespace Fonts.Systems
                 Channels channel = Channels.Red;
                 if (bitmap != default)
                 {
-                    glyphTextures[i] = new(nameBuffer[..3], new(glyphWidth, glyphHeight), bitmap, channel);
+                    glyphTextures[i] = new(nameBuffer[..3], glyphWidth, glyphHeight, bitmap, channel);
                 }
                 else
                 {
-                    glyphTextures[i] = new(nameBuffer[..3], new(1, 1), [0], channel);
+                    glyphTextures[i] = new(nameBuffer[..3], 1, 1, [0], channel);
                 }
 
                 //get or create glyph
@@ -137,8 +136,8 @@ namespace Fonts.Systems
                 else
                 {
                     Glyph newGlyph = new(world, c, advance, glyphOffset, glyphSize, default, []);
-                    newGlyph.entity.Parent = entity;
-                    glyphEntity = new(newGlyph.entity);
+                    newGlyph.entity.SetParent(entity);
+                    glyphEntity = new(newGlyph.entity.value);
                     glyphEntities.Add(glyphEntity);
                 }
 
@@ -159,16 +158,16 @@ namespace Fonts.Systems
             if (!world.ContainsComponent<FontAtlas>(entity))
             {
                 atlasTexture = new(world, glyphTextures.AsSpan(), AtlasPadding);
-                world.AddComponent(entity, new FontAtlas(atlasTexture.texture.entity));
+                world.AddComponent(entity, new FontAtlas(atlasTexture.texture.entity.value));
             }
             else
             {
                 ref FontAtlas atlas = ref world.GetComponentRef<FontAtlas>(entity);
-                UnmanagedList<Pixel> existingPixels = world.GetCollection<Pixel>(atlas.value);
+                UnmanagedList<Pixel> existingPixels = world.GetList<Pixel>(atlas.value);
                 existingPixels.Clear();
 
                 using AtlasTexture tempAtlasTexture = new(world, glyphTextures.AsSpan(), AtlasPadding);
-                Span<Pixel> newPixels = tempAtlasTexture.Pixels;
+                Span<Pixel> newPixels = tempAtlasTexture.GetPixels();
                 existingPixels.AddRange(newPixels);
                 atlasTexture = new(world, atlas.value);
             }
@@ -178,7 +177,7 @@ namespace Fonts.Systems
             {
                 FontGlyph glyphEntity = glyphEntities[i];
                 IsGlyph glyph = world.GetComponent<IsGlyph>(glyphEntity.value);
-                Vector4 region = atlasTexture.Sprites[(int)i].region;
+                Vector4 region = atlasTexture.GetSprite(i).region;
                 world.SetComponent(glyphEntity.value, new IsGlyph(glyph.character, glyph.advance, glyph.offset, glyph.size, region));
             }
 

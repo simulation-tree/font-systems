@@ -1,5 +1,4 @@
 ﻿using Data.Systems;
-using Microsoft.VisualBasic;
 using Simulation;
 using System;
 using System.Numerics;
@@ -24,19 +23,18 @@ namespace Fonts.Systems.Tests
             using FontImportSystem fonts = new(world);
 
             Font font = new(world, "Fonts Systems Tests/Arial.otf");
-            Assert.That(font.FamilyName.ToString(), Is.EqualTo("Arial"));
-            Assert.That(font.GlyphCount, Is.GreaterThan(0));
+            Assert.That(font.GetFamilyName().ToString(), Is.EqualTo("Arial"));
+            Assert.That(font.GetGlyphCount(), Is.GreaterThan(0));
 
             //also check the `a` character
-            Glyph a = font['a'];
+            Glyph a = font.GetGlyph('a');
             Assert.That(a.Character, Is.EqualTo('a'));
             Assert.That(a.Advance, Is.EqualTo(new Vector2(18, 0)));
             Assert.That(a.Offset, Is.EqualTo(new Vector2(1, 17)));
             Assert.That(a.Size, Is.EqualTo(new Vector2(16, 17)));
 
             StringBuilder sb = new();
-            uint width = font.Atlas.Width;
-            uint height = font.Atlas.Height;
+            (uint width, uint height) = font.GetAtlasTexture().GetSize();
             Vector4 uv = a.Region;
             int minX = (int)(uv.X * width);
             int minY = (int)(uv.Y * height);
@@ -46,7 +44,7 @@ namespace Fonts.Systems.Tests
             {
                 for (int x = minX; x < maxX; x++)
                 {
-                    Textures.Pixel pixel = font.Atlas.Get((uint)x, (uint)y);
+                    Textures.Pixel pixel = font.GetAtlasTexture().Get((uint)x, (uint)y);
                     if (pixel.r > 128)
                     {
                         sb.Append('O');
