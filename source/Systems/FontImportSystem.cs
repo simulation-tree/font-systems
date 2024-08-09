@@ -39,7 +39,7 @@ namespace Fonts.Systems
 
         private void ImportFonts()
         {
-            fontQuery.Fill();
+            fontQuery.Update();
             foreach (Query<IsFont>.Result result in fontQuery)
             {
                 ref IsFont font = ref result.Component1;
@@ -96,7 +96,8 @@ namespace Fonts.Systems
             }
 
             UnmanagedList<FontGlyph> glyphEntities = world.GetList<FontGlyph>(entity);
-
+            glyphEntities.Clear();
+            
             //collect glyph textures for each char
             Vector2 maxGlyphSize = default;
             using UnmanagedArray<AtlasTexture.InputSprite> glyphTextures = new(GlyphCount);
@@ -127,19 +128,12 @@ namespace Fonts.Systems
                     glyphTextures[i] = new(nameBuffer[..3], 1, 1, [0], channel);
                 }
 
-                //get or create glyph
-                FontGlyph glyphEntity;
-                if (i < glyphEntities.Count)
-                {
-                    glyphEntity = new(glyphEntities[i].value);
-                }
-                else
-                {
-                    Glyph newGlyph = new(world, c, advance, glyphOffset, glyphSize, default, []);
-                    newGlyph.entity.SetParent(entity);
-                    glyphEntity = new(newGlyph.entity.value);
-                    glyphEntities.Add(glyphEntity);
-                }
+                //create glyph entity
+                Glyph newGlyph = new(world, c, advance, glyphOffset, glyphSize, default, []);
+                newGlyph.SetParent(entity);
+
+                FontGlyph glyphEntity = new(newGlyph);
+                glyphEntities.Add(glyphEntity);
 
                 Glyph glyph = new(world, glyphEntity.value);
                 glyph.ClearKernings();
@@ -158,7 +152,7 @@ namespace Fonts.Systems
             if (!world.ContainsComponent<FontAtlas>(entity))
             {
                 atlasTexture = new(world, glyphTextures.AsSpan(), AtlasPadding);
-                world.AddComponent(entity, new FontAtlas(atlasTexture.texture.entity.value));
+                world.AddComponent(entity, new FontAtlas(atlasTexture.AsTexture()));
             }
             else
             {

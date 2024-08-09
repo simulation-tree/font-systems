@@ -28,14 +28,14 @@ namespace Fonts.Systems.Tests
 
             //also check the `a` character
             Glyph a = font.GetGlyph('a');
-            Assert.That(a.Character, Is.EqualTo('a'));
-            Assert.That(a.Advance, Is.EqualTo(new Vector2(18, 0)));
-            Assert.That(a.Offset, Is.EqualTo(new Vector2(1, 17)));
-            Assert.That(a.Size, Is.EqualTo(new Vector2(16, 17)));
+            Assert.That(a.GetCharacter(), Is.EqualTo('a'));
+            Assert.That(a.GetAdvance(), Is.EqualTo(new Vector2(18, 0)));
+            Assert.That(a.GetOffset(), Is.EqualTo(new Vector2(1, 17)));
+            Assert.That(a.GetSize(), Is.EqualTo(new Vector2(16, 17)));
 
             StringBuilder sb = new();
             (uint width, uint height) = font.GetAtlasTexture().GetSize();
-            Vector4 uv = a.Region;
+            Vector4 uv = a.GetRegion();
             int minX = (int)(uv.X * width);
             int minY = (int)(uv.Y * height);
             int maxX = (int)(uv.Z * width);
