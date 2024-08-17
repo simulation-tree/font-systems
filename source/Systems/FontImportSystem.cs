@@ -119,7 +119,7 @@ namespace Fonts.Systems
                 nameBuffer[2] = '\'';
 
                 Channels channel = Channels.Red;
-                if (bitmap != default)
+                if (!bitmap.IsEmpty)
                 {
                     glyphTextures[i] = new(nameBuffer[..3], glyphWidth, glyphHeight, bitmap, channel);
                 }
@@ -130,7 +130,7 @@ namespace Fonts.Systems
 
                 //create glyph entity
                 Glyph newGlyph = new(world, c, advance, glyphOffset, glyphSize, default, []);
-                newGlyph.SetParent(entity);
+                ((Entity)newGlyph).Parent = entity;
 
                 FontGlyph glyphEntity = new(newGlyph);
                 glyphEntities.Add(glyphEntity);
@@ -152,7 +152,7 @@ namespace Fonts.Systems
             if (!world.ContainsComponent<FontAtlas>(entity))
             {
                 atlasTexture = new(world, glyphTextures.AsSpan(), AtlasPadding);
-                world.AddComponent(entity, new FontAtlas(atlasTexture.AsTexture()));
+                world.AddComponent(entity, new FontAtlas(atlasTexture));
             }
             else
             {
@@ -161,7 +161,7 @@ namespace Fonts.Systems
                 existingPixels.Clear();
 
                 using AtlasTexture tempAtlasTexture = new(world, glyphTextures.AsSpan(), AtlasPadding);
-                Span<Pixel> newPixels = tempAtlasTexture.GetPixels();
+                Span<Pixel> newPixels = ((Texture)tempAtlasTexture).Pixels;
                 existingPixels.AddRange(newPixels);
                 atlasTexture = new(world, atlas.value);
             }
