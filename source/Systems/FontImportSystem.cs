@@ -3,8 +3,8 @@ using Fonts.Events;
 using FreeType;
 using Simulation;
 using System;
+using System.Collections.Concurrent;
 using System.Numerics;
-using Textures;
 using Unmanaged.Collections;
 
 namespace Fonts.Systems
@@ -15,18 +15,28 @@ namespace Fonts.Systems
         public const uint GlyphCount = 128;
         public const uint AtlasPadding = 4;
 
-        private readonly Query<IsFont> fontQuery;
+        private readonly Query<IsFontRequest> fontQuery;
         private readonly FreeTypeLibrary freeType;
+        private readonly UnmanagedDictionary<eint, uint> fontVersions;
+        private readonly ConcurrentQueue<Operation> operations;
 
         public FontImportSystem(World world) : base(world)
         {
             freeType = new();
             fontQuery = new(world);
+            fontVersions = new();
+            operations = new();
             Subscribe<FontUpdate>(Update);
         }
 
         public override void Dispose()
         {
+            while (operations.TryDequeue(out Operation operation))
+            {
+                operation.Dispose();
+            }
+
+            fontVersions.Dispose();
             fontQuery.Dispose();
             freeType.Dispose();
             base.Dispose();
@@ -34,44 +44,77 @@ namespace Fonts.Systems
 
         private void Update(FontUpdate e)
         {
-            ImportFonts();
+            UpdateFontRequests();
+            PerformOperations();
         }
 
-        private void ImportFonts()
+        private void UpdateFontRequests()
         {
             fontQuery.Update();
-            foreach (Query<IsFont>.Result result in fontQuery)
+            foreach (var x in fontQuery)
             {
-                ref IsFont font = ref result.Component1;
-                if (font.changed)
+                IsFontRequest request = x.Component1;
+                bool sourceChanged = false;
+                eint fontEntity = x.entity;
+                if (!fontVersions.ContainsKey(fontEntity))
                 {
-                    font.changed = false;
-                    ImportFont(result.entity);
+                    sourceChanged = true;
                 }
+                else
+                {
+                    sourceChanged = fontVersions[fontEntity] != request.version;
+                }
+
+                if (sourceChanged)
+                {
+                    //ThreadPool.QueueUserWorkItem(TryFinishFontRequest, (fontEntity, request), false);
+                    if (TryFinishFontRequest((fontEntity, request)))
+                    {
+                        fontVersions[fontEntity] = request.version;
+                    }
+                }
+            }
+        }
+
+        private void PerformOperations()
+        {
+            while (operations.TryDequeue(out Operation operation))
+            {
+                world.Perform(operation);
+                operation.Dispose();
             }
         }
 
         /// <summary>
         /// Makes sure that the entity has the latest info about the font.
         /// </summary>
-        private void ImportFont(eint entity)
+        private bool TryFinishFontRequest((eint entity, IsFontRequest request) input)
         {
+            eint entity = input.entity;
+            if (!world.ContainsList<byte>(entity))
+            {
+                return false;
+            }
+
             UnmanagedList<byte> bytes = world.GetList<byte>(entity);
             using FreeTypeFont face = freeType.Load(bytes.AsSpan());
             face.SetPixelSize(PixelSize, PixelSize);
 
-            UpdateAtlas(face, entity);
+            Operation operation = new();
+            operation.SelectEntity(entity);
+
+            UpdateAtlas(face, entity, ref operation);
             float lineHeight = face.Metrics.height >> 6;
             lineHeight /= PixelSize;
 
             //set metrics
             if (!world.ContainsComponent<FontMetrics>(entity))
             {
-                world.AddComponent(entity, new FontMetrics(lineHeight));
+                operation.AddComponent(new FontMetrics(lineHeight));
             }
             else
             {
-                world.SetComponent(entity, new FontMetrics(lineHeight));
+                operation.SetComponent(new FontMetrics(lineHeight));
             }
 
             //set family name
@@ -79,30 +122,59 @@ namespace Fonts.Systems
             int length = face.CopyFamilyName(familyName);
             if (!world.ContainsComponent<FontName>(entity))
             {
-                world.AddComponent(entity, new FontName(familyName[..length]));
+                operation.AddComponent(new FontName(familyName[..length]));
             }
             else
             {
-                world.SetComponent(entity, new FontName(familyName[..length]));
+                operation.SetComponent(new FontName(familyName[..length]));
             }
+
+            if (world.TryGetComponent(entity, out IsFont component))
+            {
+                component.version++;
+                operation.SetComponent(component);
+            }
+            else
+            {
+                operation.AddComponent(new IsFont());
+            }
+
+            operations.Enqueue(operation);
+            return true;
         }
 
-        private uint UpdateAtlas(FreeTypeFont font, eint entity)
+        private void UpdateAtlas(FreeTypeFont font, eint fontEntity, ref Operation operation)
         {
             //get glyph collection and reset to empty
-            if (!world.ContainsList<FontGlyph>(entity))
+            if (world.TryGetList(fontEntity, out UnmanagedList<FontGlyph> existingList))
             {
-                world.CreateList<FontGlyph>(entity);
+                foreach (FontGlyph oldGlyph in existingList)
+                {
+                    operation.RemoveReference(oldGlyph.value);
+                }
+
+                operation.ClearSelection();
+                foreach (FontGlyph oldGlyph in existingList)
+                {
+                    eint glyphEntity = world.GetReference(fontEntity, oldGlyph.value);
+                    operation.SelectEntity(glyphEntity);
+                }
+
+                operation.DestroySelected();
+                operation.ClearSelection();
+                operation.SelectEntity(fontEntity);
+                operation.ClearList<FontGlyph>();
+            }
+            else
+            {
+                operation.CreateList<FontGlyph>();
             }
 
-            UnmanagedList<FontGlyph> glyphEntities = world.GetList<FontGlyph>(entity);
-            glyphEntities.Clear();
-            
             //collect glyph textures for each char
             Vector2 maxGlyphSize = default;
-            using UnmanagedArray<AtlasTexture.InputSprite> glyphTextures = new(GlyphCount);
             Span<char> nameBuffer = stackalloc char[4];
-            for (uint i = 0; i < glyphTextures.Length; i++)
+            uint referenceCount = world.GetReferenceCount(fontEntity);
+            for (uint i = 0; i < GlyphCount; i++)
             {
                 char c = (char)i;
                 FreeTypeGlyph loadedGlyph = font.LoadGlyph(font.GetCharIndex(c));
@@ -118,64 +190,27 @@ namespace Fonts.Systems
                 nameBuffer[1] = c;
                 nameBuffer[2] = '\'';
 
-                Channels channel = Channels.Red;
-                if (!bitmap.IsEmpty)
-                {
-                    glyphTextures[i] = new(nameBuffer[..3], glyphWidth, glyphHeight, bitmap, channel);
-                }
-                else
-                {
-                    glyphTextures[i] = new(nameBuffer[..3], 1, 1, [0], channel);
-                }
-
                 //create glyph entity
-                Glyph newGlyph = new(world, c, advance, glyphOffset, glyphSize, default, []);
-                ((Entity)newGlyph).Parent = entity;
-
-                FontGlyph glyphEntity = new(newGlyph);
-                glyphEntities.Add(glyphEntity);
-
-                Glyph glyph = new(world, glyphEntity.value);
-                glyph.ClearKernings();
+                operation.ClearSelection();
+                operation.CreateEntity();
+                operation.AddComponent(new IsGlyph(c, advance, glyphOffset, glyphSize));
+                operation.SetParent(fontEntity);
+                operation.CreateList<Kerning>();
                 for (uint n = 32; n < GlyphCount; n++)
                 {
                     (int x, int y) = font.GetKerning(c, (char)n);
                     if (x != 0 || y != 0)
                     {
-                        glyph.AddKerning((char)n, new(x, y));
+                        operation.AppendToList(new Kerning((char)n, new(x, y)));
                     }
                 }
-            }
 
-            //set atlas
-            AtlasTexture atlasTexture;
-            if (!world.ContainsComponent<FontAtlas>(entity))
-            {
-                atlasTexture = new(world, glyphTextures.AsSpan(), AtlasPadding);
-                world.AddComponent(entity, new FontAtlas(atlasTexture));
+                rint glyphReference = (rint)(referenceCount + i + 1);
+                operation.ClearSelection();
+                operation.SelectEntity(fontEntity);
+                operation.AddReference(0);
+                operation.AppendToList(new FontGlyph(glyphReference));
             }
-            else
-            {
-                ref FontAtlas atlas = ref world.GetComponentRef<FontAtlas>(entity);
-                UnmanagedList<Pixel> existingPixels = world.GetList<Pixel>(atlas.value);
-                existingPixels.Clear();
-
-                using AtlasTexture tempAtlasTexture = new(world, glyphTextures.AsSpan(), AtlasPadding);
-                Span<Pixel> newPixels = ((Texture)tempAtlasTexture).Pixels;
-                existingPixels.AddRange(newPixels);
-                atlasTexture = new(world, atlas.value);
-            }
-
-            //update uv region of all glyphs after packing
-            for (uint i = 0; i < glyphEntities.Count; i++)
-            {
-                FontGlyph glyphEntity = glyphEntities[i];
-                IsGlyph glyph = world.GetComponent<IsGlyph>(glyphEntity.value);
-                Vector4 region = atlasTexture.GetSprite(i).region;
-                world.SetComponent(glyphEntity.value, new IsGlyph(glyph.character, glyph.advance, glyph.offset, glyph.size, region));
-            }
-
-            return glyphTextures.Length;
         }
     }
 }

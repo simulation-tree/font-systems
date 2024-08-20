@@ -17,7 +17,6 @@
 	<ItemGroup>
 		<ProjectReference Include="..\..\fonts\Fonts.csproj" />
 		<ProjectReference Include="..\..\simulation\source\Simulation.csproj" />
-		<ProjectReference Include="..\..\textures\Textures.csproj" />
 	</ItemGroup>
 
 </Project>
