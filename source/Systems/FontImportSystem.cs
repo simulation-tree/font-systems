@@ -118,17 +118,15 @@ namespace Fonts.Systems
             operation.SelectEntity(fontEntity);
 
             LoadGlyphs(face, fontEntity, ref operation);
-            float lineHeight = face.SizeMetrics.height >> 6;
-            lineHeight /= PixelSize;
 
             //set metrics
             if (!world.ContainsComponent<FontMetrics>(fontEntity))
             {
-                operation.AddComponent(new FontMetrics(lineHeight));
+                operation.AddComponent(new FontMetrics(face.Height));
             }
             else
             {
-                operation.SetComponent(new FontMetrics(lineHeight));
+                operation.SetComponent(new FontMetrics(face.Height));
             }
 
             //set family name
@@ -185,7 +183,6 @@ namespace Fonts.Systems
             }
 
             //collect glyph textures for each char
-            Vector2 maxGlyphSize = default;
             Span<char> nameBuffer = stackalloc char[4];
             uint referenceCount = world.GetReferenceCount(fontEntity);
             for (uint i = 0; i < GlyphCount; i++)
@@ -193,15 +190,9 @@ namespace Fonts.Systems
                 char c = (char)i;
                 GlyphSlot loadedGlyph = font.LoadGlyph(font.GetCharIndex(c));
                 GlyphMetrics metrics = loadedGlyph.Metrics;
-                Vector2 glyphOffset = new(loadedGlyph.Left, loadedGlyph.Top);
-                (uint x, uint y) metricsSize = metrics.Size;
-                Vector2 glyphSize = new(metricsSize.x, metricsSize.y);
+                (int x, int y) glyphOffset = (loadedGlyph.Left, loadedGlyph.Top);
                 //todo: fault: fonts only have information about horizontal bearing, never vertical, assuming that all text
                 //will be laid out horizontally
-                (int x, int y) metricsBearing = metrics.HorizontalBearing;
-                Vector2 glyphBearing = new(metricsBearing.x, metricsBearing.y);
-                Vector2 advance = new(metrics.HorizontalAdvance >> 6, metrics.VerticalAdvance >> 6);
-                maxGlyphSize = Vector2.Max(maxGlyphSize, glyphSize);
 
                 nameBuffer[0] = '\'';
                 nameBuffer[1] = c;
@@ -210,7 +201,7 @@ namespace Fonts.Systems
                 //create glyph entity
                 operation.ClearSelection();
                 operation.CreateEntity();
-                operation.AddComponent(new IsGlyph(c, advance, glyphBearing, glyphOffset, glyphSize));
+                operation.AddComponent(new IsGlyph(c, metrics.Advance, metrics.HorizontalBearing, glyphOffset, metrics.Size));
                 operation.SetParent(fontEntity);
                 operation.CreateList<Kerning>();
                 for (uint n = 32; n < GlyphCount; n++)
