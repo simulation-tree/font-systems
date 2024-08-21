@@ -16,8 +16,9 @@ namespace Fonts.Systems
         public const uint AtlasPadding = 4;
 
         private readonly Query<IsFontRequest> fontQuery;
-        private readonly FreeTypeLibrary freeType;
+        private readonly Library freeType;
         private readonly UnmanagedDictionary<eint, uint> fontVersions;
+        private readonly UnmanagedDictionary<eint, Face> fontFaces;
         private readonly ConcurrentQueue<Operation> operations;
 
         public FontImportSystem(World world) : base(world)
@@ -25,6 +26,7 @@ namespace Fonts.Systems
             freeType = new();
             fontQuery = new(world);
             fontVersions = new();
+            fontFaces = new();
             operations = new();
             Subscribe<FontUpdate>(Update);
         }
@@ -36,6 +38,12 @@ namespace Fonts.Systems
                 operation.Dispose();
             }
 
+            foreach (eint fontEntity in fontFaces.Keys)
+            {
+                fontFaces[fontEntity].Dispose();
+            }
+
+            fontFaces.Dispose();
             fontVersions.Dispose();
             fontQuery.Dispose();
             freeType.Dispose();
@@ -90,25 +98,31 @@ namespace Fonts.Systems
         /// </summary>
         private bool TryFinishFontRequest((eint entity, IsFontRequest request) input)
         {
-            eint entity = input.entity;
-            if (!world.ContainsList<byte>(entity))
+            eint fontEntity = input.entity;
+            if (!world.ContainsList<byte>(fontEntity))
             {
+                //wait for bytes to become available
                 return false;
             }
 
-            UnmanagedList<byte> bytes = world.GetList<byte>(entity);
-            using FreeTypeFont face = freeType.Load(bytes.AsSpan());
+            if (!fontFaces.TryGetValue(fontEntity, out Face face))
+            {
+                UnmanagedList<byte> bytes = world.GetList<byte>(fontEntity);
+                face = freeType.Load(bytes.AsSpan());
+                fontFaces.Add(fontEntity, face);
+            }
+
             face.SetPixelSize(PixelSize, PixelSize);
 
             Operation operation = new();
-            operation.SelectEntity(entity);
+            operation.SelectEntity(fontEntity);
 
-            UpdateAtlas(face, entity, ref operation);
-            float lineHeight = face.Metrics.height >> 6;
+            LoadGlyphs(face, fontEntity, ref operation);
+            float lineHeight = face.SizeMetrics.height >> 6;
             lineHeight /= PixelSize;
 
             //set metrics
-            if (!world.ContainsComponent<FontMetrics>(entity))
+            if (!world.ContainsComponent<FontMetrics>(fontEntity))
             {
                 operation.AddComponent(new FontMetrics(lineHeight));
             }
@@ -120,7 +134,7 @@ namespace Fonts.Systems
             //set family name
             Span<char> familyName = stackalloc char[128];
             int length = face.CopyFamilyName(familyName);
-            if (!world.ContainsComponent<FontName>(entity))
+            if (!world.ContainsComponent<FontName>(fontEntity))
             {
                 operation.AddComponent(new FontName(familyName[..length]));
             }
@@ -129,7 +143,7 @@ namespace Fonts.Systems
                 operation.SetComponent(new FontName(familyName[..length]));
             }
 
-            if (world.TryGetComponent(entity, out IsFont component))
+            if (world.TryGetComponent(fontEntity, out IsFont component))
             {
                 component.version++;
                 operation.SetComponent(component);
@@ -143,11 +157,11 @@ namespace Fonts.Systems
             return true;
         }
 
-        private void UpdateAtlas(FreeTypeFont font, eint fontEntity, ref Operation operation)
+        private void LoadGlyphs(Face font, eint fontEntity, ref Operation operation)
         {
-            //get glyph collection and reset to empty
             if (world.TryGetList(fontEntity, out UnmanagedList<FontGlyph> existingList))
             {
+                //get glyph collection and reset to empty
                 foreach (FontGlyph oldGlyph in existingList)
                 {
                     operation.RemoveReference(oldGlyph.value);
@@ -177,15 +191,18 @@ namespace Fonts.Systems
             for (uint i = 0; i < GlyphCount; i++)
             {
                 char c = (char)i;
-                FreeTypeGlyph loadedGlyph = font.LoadGlyph(font.GetCharIndex(c));
+                GlyphSlot loadedGlyph = font.LoadGlyph(font.GetCharIndex(c));
+                GlyphMetrics metrics = loadedGlyph.Metrics;
                 Vector2 glyphOffset = new(loadedGlyph.Left, loadedGlyph.Top);
-                uint glyphWidth = loadedGlyph.Width;
-                uint glyphHeight = loadedGlyph.Height;
-                Vector2 glyphSize = new(glyphWidth, glyphHeight);
-                Vector2 advance = new(loadedGlyph.HorizontalAdvance >> 6, loadedGlyph.VerticalAdvance >> 6);
+                (uint x, uint y) metricsSize = metrics.Size;
+                Vector2 glyphSize = new(metricsSize.x, metricsSize.y);
+                //todo: fault: fonts only have information about horizontal bearing, never vertical, assuming that all text
+                //will be laid out horizontally
+                (int x, int y) metricsBearing = metrics.HorizontalBearing;
+                Vector2 glyphBearing = new(metricsBearing.x, metricsBearing.y);
+                Vector2 advance = new(metrics.HorizontalAdvance >> 6, metrics.VerticalAdvance >> 6);
                 maxGlyphSize = Vector2.Max(maxGlyphSize, glyphSize);
 
-                ReadOnlySpan<byte> bitmap = loadedGlyph.Bitmap;
                 nameBuffer[0] = '\'';
                 nameBuffer[1] = c;
                 nameBuffer[2] = '\'';
@@ -193,15 +210,15 @@ namespace Fonts.Systems
                 //create glyph entity
                 operation.ClearSelection();
                 operation.CreateEntity();
-                operation.AddComponent(new IsGlyph(c, advance, glyphOffset, glyphSize));
+                operation.AddComponent(new IsGlyph(c, advance, glyphBearing, glyphOffset, glyphSize));
                 operation.SetParent(fontEntity);
                 operation.CreateList<Kerning>();
                 for (uint n = 32; n < GlyphCount; n++)
                 {
-                    (int x, int y) = font.GetKerning(c, (char)n);
-                    if (x != 0 || y != 0)
+                    (int x, int y) kerning = font.GetKerning(c, (char)n);
+                    if (kerning != default)
                     {
-                        operation.AppendToList(new Kerning((char)n, new(x, y)));
+                        operation.AppendToList(new Kerning((char)n, new(kerning.x, kerning.y)));
                     }
                 }
 

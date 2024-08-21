@@ -11,11 +11,8 @@
 	</PropertyGroup>
 
 	<ItemGroup>
-		<PackageReference Include="FreeTypeSharp" Version="3.0.0" />
-	</ItemGroup>
-
-	<ItemGroup>
 		<ProjectReference Include="..\..\fonts\Fonts.csproj" />
+		<ProjectReference Include="..\..\freetype\source\FreeType.csproj" />
 		<ProjectReference Include="..\..\simulation\source\Simulation.csproj" />
 	</ItemGroup>
 
