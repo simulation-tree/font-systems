@@ -31,7 +31,7 @@ namespace Fonts.Systems.Tests
             using FontImportSystem fonts = new(world);
 
             Font font = new(world, "Fonts Systems Tests/Arial.otf");
-            while (!font.IsLoaded)
+            while (!font.Is())
             {
                 cancellation.ThrowIfCancellationRequested();
                 Simulate(world);
