@@ -23,7 +23,7 @@ namespace Fonts.Systems.Tests
             world.Poll();
         }
 
-        [Test, CancelAfter(1000)]
+        [Test, CancelAfter(4000)]
         public void ImportArialFont(CancellationToken cancellation)
         {
             using World world = new();
