@@ -11,7 +11,7 @@
 	</PropertyGroup>
 
 	<ItemGroup>
-		<ProjectReference Include="..\..\fonts\Fonts.csproj" />
+		<ProjectReference Include="..\..\fonts\source\Fonts.csproj" />
 		<ProjectReference Include="..\..\freetype\source\FreeType.csproj" />
 		<ProjectReference Include="..\..\simulation\source\Simulation.csproj" />
 	</ItemGroup>
