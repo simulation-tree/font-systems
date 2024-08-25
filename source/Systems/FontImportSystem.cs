@@ -78,7 +78,7 @@ namespace Fonts.Systems
                     //ThreadPool.QueueUserWorkItem(TryFinishFontRequest, (fontEntity, request), false);
                     if (TryFinishFontRequest((fontEntity, request)))
                     {
-                        fontVersions[fontEntity] = request.version;
+                        fontVersions.AddOrSet(fontEntity, request.version);
                     }
                 }
             }
@@ -99,7 +99,7 @@ namespace Fonts.Systems
         private bool TryFinishFontRequest((eint entity, IsFontRequest request) input)
         {
             eint fontEntity = input.entity;
-            if (!world.ContainsList<byte>(fontEntity))
+            if (!world.ContainsArray<byte>(fontEntity))
             {
                 //wait for bytes to become available
                 return false;
@@ -107,16 +107,14 @@ namespace Fonts.Systems
 
             if (!fontFaces.TryGetValue(fontEntity, out Face face))
             {
-                UnmanagedList<byte> bytes = world.GetList<byte>(fontEntity);
-                face = freeType.Load(bytes.AsSpan());
+                Span<byte> bytes = world.GetArray<byte>(fontEntity);
+                face = freeType.Load(bytes);
                 fontFaces.Add(fontEntity, face);
             }
 
             face.SetPixelSize(PixelSize, PixelSize);
 
             Operation operation = new();
-            operation.SelectEntity(fontEntity);
-
             LoadGlyphs(face, fontEntity, ref operation);
 
             //set metrics
@@ -157,7 +155,9 @@ namespace Fonts.Systems
 
         private void LoadGlyphs(Face font, eint fontEntity, ref Operation operation)
         {
-            if (world.TryGetList(fontEntity, out UnmanagedList<FontGlyph> existingList))
+            operation.SelectEntity(fontEntity);
+            bool createGlyphs = false;
+            if (world.TryGetArray(fontEntity, out Span<FontGlyph> existingList))
             {
                 //get glyph collection and reset to empty
                 foreach (FontGlyph oldGlyph in existingList)
@@ -173,18 +173,18 @@ namespace Fonts.Systems
                 }
 
                 operation.DestroySelected();
-                operation.ClearSelection();
-                operation.SelectEntity(fontEntity);
-                operation.ClearList<FontGlyph>();
             }
             else
             {
-                operation.CreateList<FontGlyph>();
+                createGlyphs = true;
             }
 
             //collect glyph textures for each char
             Span<char> nameBuffer = stackalloc char[4];
             uint referenceCount = world.GetReferenceCount(fontEntity);
+            Span<Kerning> kerningBuffer = stackalloc Kerning[96];
+            int kerningCount = 0;
+            using UnmanagedArray<FontGlyph> glyphsBuffer = new(GlyphCount);
             for (uint i = 0; i < GlyphCount; i++)
             {
                 char c = (char)i;
@@ -203,21 +203,37 @@ namespace Fonts.Systems
                 operation.CreateEntity();
                 operation.AddComponent(new IsGlyph(c, metrics.Advance, metrics.HorizontalBearing, glyphOffset, metrics.Size));
                 operation.SetParent(fontEntity);
-                operation.CreateList<Kerning>();
+                //operation.CreateArray<Kerning>();
+
+                kerningCount = 0;
                 for (uint n = 32; n < GlyphCount; n++)
                 {
                     (int x, int y) kerning = font.GetKerning(c, (char)n);
                     if (kerning != default)
                     {
-                        operation.AppendToList(new Kerning((char)n, new(kerning.x, kerning.y)));
+                        //operation.SetArrayElement(new Kerning((char)n, new(kerning.x, kerning.y)));
+                        kerningBuffer[kerningCount++] = new((char)n, new(kerning.x, kerning.y));
                     }
                 }
+
+                operation.CreateArray<Kerning>(kerningBuffer[..kerningCount]);
 
                 rint glyphReference = (rint)(referenceCount + i + 1);
                 operation.ClearSelection();
                 operation.SelectEntity(fontEntity);
                 operation.AddReference(0);
-                operation.AppendToList(new FontGlyph(glyphReference));
+                //operation.SetArrayElement(new FontGlyph(glyphReference));
+                glyphsBuffer[i] = new(glyphReference);
+            }
+
+            if (createGlyphs)
+            {
+                operation.CreateArray<FontGlyph>(glyphsBuffer.AsSpan());
+            }
+            else
+            {
+                operation.ResizeArray<FontGlyph>(GlyphCount);
+                operation.SetArrayElement(0, glyphsBuffer.AsSpan());
             }
         }
     }
