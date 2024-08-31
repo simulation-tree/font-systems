@@ -4,7 +4,6 @@ using FreeType;
 using Simulation;
 using System;
 using System.Collections.Concurrent;
-using System.Numerics;
 using Unmanaged.Collections;
 
 namespace Fonts.Systems
@@ -17,8 +16,8 @@ namespace Fonts.Systems
 
         private readonly Query<IsFontRequest> fontQuery;
         private readonly Library freeType;
-        private readonly UnmanagedDictionary<eint, uint> fontVersions;
-        private readonly UnmanagedDictionary<eint, Face> fontFaces;
+        private readonly UnmanagedDictionary<uint, uint> fontVersions;
+        private readonly UnmanagedDictionary<uint, Face> fontFaces;
         private readonly ConcurrentQueue<Operation> operations;
 
         public FontImportSystem(World world) : base(world)
@@ -38,7 +37,7 @@ namespace Fonts.Systems
                 operation.Dispose();
             }
 
-            foreach (eint fontEntity in fontFaces.Keys)
+            foreach (uint fontEntity in fontFaces.Keys)
             {
                 fontFaces[fontEntity].Dispose();
             }
@@ -63,7 +62,7 @@ namespace Fonts.Systems
             {
                 IsFontRequest request = x.Component1;
                 bool sourceChanged = false;
-                eint fontEntity = x.entity;
+                uint fontEntity = x.entity;
                 if (!fontVersions.ContainsKey(fontEntity))
                 {
                     sourceChanged = true;
@@ -96,9 +95,9 @@ namespace Fonts.Systems
         /// <summary>
         /// Makes sure that the entity has the latest info about the font.
         /// </summary>
-        private bool TryFinishFontRequest((eint entity, IsFontRequest request) input)
+        private bool TryFinishFontRequest((uint entity, IsFontRequest request) input)
         {
-            eint fontEntity = input.entity;
+            uint fontEntity = input.entity;
             if (!world.ContainsArray<byte>(fontEntity))
             {
                 //wait for bytes to become available
@@ -153,7 +152,7 @@ namespace Fonts.Systems
             return true;
         }
 
-        private void LoadGlyphs(Face font, eint fontEntity, ref Operation operation)
+        private void LoadGlyphs(Face font, uint fontEntity, ref Operation operation)
         {
             operation.SelectEntity(fontEntity);
             bool createGlyphs = false;
@@ -168,7 +167,7 @@ namespace Fonts.Systems
                 operation.ClearSelection();
                 foreach (FontGlyph oldGlyph in existingList)
                 {
-                    eint glyphEntity = world.GetReference(fontEntity, oldGlyph.value);
+                    uint glyphEntity = world.GetReference(fontEntity, oldGlyph.value);
                     operation.SelectEntity(glyphEntity);
                 }
 
@@ -203,7 +202,6 @@ namespace Fonts.Systems
                 operation.CreateEntity();
                 operation.AddComponent(new IsGlyph(c, metrics.Advance, metrics.HorizontalBearing, glyphOffset, metrics.Size));
                 operation.SetParent(fontEntity);
-                //operation.CreateArray<Kerning>();
 
                 kerningCount = 0;
                 for (uint n = 32; n < GlyphCount; n++)
@@ -211,7 +209,6 @@ namespace Fonts.Systems
                     (int x, int y) kerning = font.GetKerning(c, (char)n);
                     if (kerning != default)
                     {
-                        //operation.SetArrayElement(new Kerning((char)n, new(kerning.x, kerning.y)));
                         kerningBuffer[kerningCount++] = new((char)n, new(kerning.x, kerning.y));
                     }
                 }
@@ -221,8 +218,7 @@ namespace Fonts.Systems
                 rint glyphReference = (rint)(referenceCount + i + 1);
                 operation.ClearSelection();
                 operation.SelectEntity(fontEntity);
-                operation.AddReference(0);
-                //operation.SetArrayElement(new FontGlyph(glyphReference));
+                operation.AddReferenceTowardsPreviouslyCreatedEntity(0);
                 glyphsBuffer[i] = new(glyphReference);
             }
 
