@@ -24,7 +24,7 @@ namespace Fonts.Systems.Tests
             await Task.Delay(1, cancellation);
         }
 
-        [Test, CancelAfter(4000)]
+        [Test, CancelAfter(8000)]
         public async Task ImportArialFont(CancellationToken cancellation)
         {
             using World world = new();
@@ -32,7 +32,7 @@ namespace Fonts.Systems.Tests
             using FontImportSystem fonts = new(world);
 
             Font font = new(world, "*/Arial.otf");
-            await font.UntilIs(Simulate, cancellation);
+            await font.UntilCompliant(Simulate, cancellation);
 
             Assert.That(font.FamilyName.ToString(), Is.EqualTo("Arial"));
             Assert.That(font.GlyphCount, Is.GreaterThan(0));

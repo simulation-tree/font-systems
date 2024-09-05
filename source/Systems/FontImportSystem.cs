@@ -4,6 +4,8 @@ using FreeType;
 using Simulation;
 using System;
 using System.Collections.Concurrent;
+using System.Diagnostics;
+using Unmanaged;
 using Unmanaged.Collections;
 
 namespace Fonts.Systems
@@ -14,7 +16,7 @@ namespace Fonts.Systems
         public const uint GlyphCount = 128;
         public const uint AtlasPadding = 4;
 
-        private readonly Query<IsFontRequest> fontQuery;
+        private readonly ComponentQuery<IsFontRequest> fontQuery;
         private readonly Library freeType;
         private readonly UnmanagedDictionary<uint, uint> fontVersions;
         private readonly UnmanagedDictionary<uint, Face> fontFaces;
@@ -23,7 +25,7 @@ namespace Fonts.Systems
         public FontImportSystem(World world) : base(world)
         {
             freeType = new();
-            fontQuery = new(world);
+            fontQuery = new();
             fontVersions = new();
             fontFaces = new();
             operations = new();
@@ -57,7 +59,7 @@ namespace Fonts.Systems
 
         private void UpdateFontRequests()
         {
-            fontQuery.Update();
+            fontQuery.Update(world);
             foreach (var x in fontQuery)
             {
                 IsFontRequest request = x.Component1;
@@ -79,6 +81,10 @@ namespace Fonts.Systems
                     {
                         fontVersions.AddOrSet(fontEntity, request.version);
                     }
+                    else
+                    {
+                        Debug.WriteLine($"Font request for `{fontEntity}` failed");
+                    }
                 }
             }
         }
@@ -95,19 +101,20 @@ namespace Fonts.Systems
         /// <summary>
         /// Makes sure that the entity has the latest info about the font.
         /// </summary>
-        private bool TryFinishFontRequest((uint entity, IsFontRequest request) input)
+        private unsafe bool TryFinishFontRequest((uint entity, IsFontRequest request) input)
         {
             uint fontEntity = input.entity;
             if (!world.ContainsArray<byte>(fontEntity))
             {
                 //wait for bytes to become available
+                Console.WriteLine($"Font data for `{fontEntity}` not available yet, skipping");
                 return false;
             }
 
             if (!fontFaces.TryGetValue(fontEntity, out Face face))
             {
-                Span<byte> bytes = world.GetArray<byte>(fontEntity);
-                face = freeType.Load(bytes);
+                USpan<byte> bytes = world.GetArray<byte>(fontEntity);
+                face = freeType.Load(bytes.pointer, bytes.length);
                 fontFaces.Add(fontEntity, face);
             }
 
@@ -156,7 +163,7 @@ namespace Fonts.Systems
         {
             operation.SelectEntity(fontEntity);
             bool createGlyphs = false;
-            if (world.TryGetArray(fontEntity, out Span<FontGlyph> existingList))
+            if (world.TryGetArray(fontEntity, out USpan<FontGlyph> existingList))
             {
                 //get glyph collection and reset to empty
                 foreach (FontGlyph oldGlyph in existingList)
@@ -181,8 +188,8 @@ namespace Fonts.Systems
             //collect glyph textures for each char
             Span<char> nameBuffer = stackalloc char[4];
             uint referenceCount = world.GetReferenceCount(fontEntity);
-            Span<Kerning> kerningBuffer = stackalloc Kerning[96];
-            int kerningCount = 0;
+            USpan<Kerning> kerningBuffer = stackalloc Kerning[96];
+            uint kerningCount = 0;
             using UnmanagedArray<FontGlyph> glyphsBuffer = new(GlyphCount);
             for (uint i = 0; i < GlyphCount; i++)
             {
@@ -213,7 +220,7 @@ namespace Fonts.Systems
                     }
                 }
 
-                operation.CreateArray<Kerning>(kerningBuffer[..kerningCount]);
+                operation.CreateArray<Kerning>(kerningBuffer.Slice(0, kerningCount));
 
                 rint glyphReference = (rint)(referenceCount + i + 1);
                 operation.ClearSelection();
