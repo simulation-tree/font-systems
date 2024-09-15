@@ -114,7 +114,7 @@ namespace Fonts.Systems
             if (!fontFaces.TryGetValue(fontEntity, out Face face))
             {
                 USpan<byte> bytes = world.GetArray<byte>(fontEntity);
-                face = freeType.Load(bytes.pointer, bytes.length);
+                face = freeType.Load(bytes.pointer, bytes.Length);
                 fontFaces.Add(fontEntity, face);
             }
 
