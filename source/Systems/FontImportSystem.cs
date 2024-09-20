@@ -236,7 +236,7 @@ namespace Fonts.Systems
             else
             {
                 operation.ResizeArray<FontGlyph>(GlyphCount);
-                operation.SetArrayElement(0, glyphsBuffer.AsSpan());
+                operation.SetArrayElements(0, glyphsBuffer.AsSpan());
             }
         }
     }
