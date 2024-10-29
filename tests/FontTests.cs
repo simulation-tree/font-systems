@@ -1,37 +1,23 @@
-﻿using Data.Events;
-using Data.Systems;
-using Fonts.Events;
-using Simulation;
+﻿using Data.Systems;
+using Simulation.Tests;
 using System.Threading;
 using System.Threading.Tasks;
-using Unmanaged;
 
 namespace Fonts.Systems.Tests
 {
-    public class FontTests
+    public class FontTests : SimulationTests
     {
-        [TearDown]
-        public void CleanUp()
+        protected override void SetUp()
         {
-            Allocations.ThrowIfAny();
-        }
-
-        private async Task Simulate(World world, CancellationToken cancellation)
-        {
-            world.Submit(new DataUpdate());
-            world.Submit(new FontUpdate());
-            world.Poll();
-            await Task.Delay(1, cancellation);
+            base.SetUp();
+            Simulator.AddSystem<DataImportSystem>();
+            Simulator.AddSystem<FontImportSystem>();
         }
 
         [Test, CancelAfter(8000)]
         public async Task ImportArialFont(CancellationToken cancellation)
         {
-            using World world = new();
-            using DataImportSystem dataImports = new(world);
-            using FontImportSystem fonts = new(world);
-
-            Font font = new(world, "*/Arial.otf");
+            Font font = new(World, "*/Arial.otf");
             await font.UntilCompliant(Simulate, cancellation);
 
             Assert.That(font.FamilyName.ToString(), Is.EqualTo("Arial"));
