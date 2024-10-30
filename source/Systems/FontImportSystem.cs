@@ -1,4 +1,5 @@
-﻿using Fonts.Components;
+﻿using Collections;
+using Fonts.Components;
 using FreeType;
 using Simulation;
 using Simulation.Functions;
@@ -6,7 +7,6 @@ using System;
 using System.Diagnostics;
 using System.Runtime.InteropServices;
 using Unmanaged;
-using Unmanaged.Collections;
 
 namespace Fonts.Systems
 {
@@ -18,9 +18,9 @@ namespace Fonts.Systems
 
         private readonly ComponentQuery<IsFontRequest> fontQuery;
         private readonly Library freeType;
-        private readonly UnmanagedDictionary<Entity, uint> fontVersions;
-        private readonly UnmanagedDictionary<Entity, Face> fontFaces;
-        private readonly UnmanagedList<Operation> operations;
+        private readonly Dictionary<Entity, uint> fontVersions;
+        private readonly Dictionary<Entity, Face> fontFaces;
+        private readonly List<Operation> operations;
 
         readonly unsafe InitializeFunction ISystem.Initialize => new(&Initialize);
         readonly unsafe IterateFunction ISystem.Update => new(&Update);
@@ -217,7 +217,7 @@ namespace Fonts.Systems
             uint referenceCount = font.GetReferenceCount();
             USpan<Kerning> kerningBuffer = stackalloc Kerning[96];
             uint kerningCount = 0;
-            using UnmanagedArray<FontGlyph> glyphsBuffer = new(GlyphCount);
+            using Array<FontGlyph> glyphsBuffer = new(GlyphCount);
             for (uint i = 0; i < GlyphCount; i++)
             {
                 char c = (char)i;
