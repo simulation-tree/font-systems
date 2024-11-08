@@ -108,7 +108,7 @@ namespace Fonts.Systems
                     }
                     else
                     {
-                        Debug.WriteLine($"Font request for `{font}` failed");
+                        Trace.WriteLine($"Font request for `{font}` failed");
                     }
                 }
             }
@@ -134,7 +134,7 @@ namespace Fonts.Systems
             if (!font.ContainsArray<byte>())
             {
                 //wait for bytes to become available
-                Debug.WriteLine($"Font data for `{font}` not available yet, skipping");
+                Trace.WriteLine($"Font data for `{font}` not available yet, skipping");
                 return false;
             }
 
