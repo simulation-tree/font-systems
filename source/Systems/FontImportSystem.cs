@@ -1,4 +1,5 @@
 ﻿using Collections;
+using Data.Components;
 using Fonts.Components;
 using FreeType;
 using Simulation;
@@ -7,6 +8,7 @@ using System;
 using System.Diagnostics;
 using System.Runtime.InteropServices;
 using Unmanaged;
+using Worlds;
 
 namespace Fonts.Systems
 {
@@ -22,12 +24,12 @@ namespace Fonts.Systems
         private readonly Dictionary<Entity, Face> fontFaces;
         private readonly List<Operation> operations;
 
-        readonly unsafe InitializeFunction ISystem.Initialize => new(&Initialize);
-        readonly unsafe IterateFunction ISystem.Iterate => new(&Update);
-        readonly unsafe FinalizeFunction ISystem.Finalize => new(&Finalize);
+        readonly unsafe StartSystem ISystem.Start => new(&Start);
+        readonly unsafe UpdateSystem ISystem.Update => new(&Update);
+        readonly unsafe FinishSystem ISystem.Finish => new(&Finish);
 
         [UnmanagedCallersOnly]
-        private static void Initialize(SystemContainer container, World world)
+        private static void Start(SystemContainer container, World world)
         {
         }
 
@@ -39,7 +41,7 @@ namespace Fonts.Systems
         }
 
         [UnmanagedCallersOnly]
-        private static void Finalize(SystemContainer container, World world)
+        private static void Finish(SystemContainer container, World world)
         {
             if (container.World == world)
             {
@@ -131,7 +133,7 @@ namespace Fonts.Systems
         {
             Entity font = input.font;
             World world = font.GetWorld();
-            if (!font.ContainsArray<byte>())
+            if (!font.ContainsArray<BinaryData>())
             {
                 //wait for bytes to become available
                 Trace.WriteLine($"Font data for `{font}` not available yet, skipping");
@@ -140,9 +142,9 @@ namespace Fonts.Systems
 
             if (!fontFaces.TryGetValue(font, out Face face))
             {
-                USpan<byte> bytes = font.GetArray<byte>();
+                USpan<BinaryData> bytes = font.GetArray<BinaryData>();
                 face = freeType.Load(bytes.Address, bytes.Length);
-                fontFaces.Add(font, face);
+                fontFaces.TryAdd(font, face);
             }
 
             face.SetPixelSize(PixelSize, PixelSize);

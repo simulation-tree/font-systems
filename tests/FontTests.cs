@@ -1,7 +1,11 @@
-﻿using Data.Systems;
+﻿using Data.Components;
+using Data.Systems;
+using Fonts.Components;
+using Simulation.Components;
 using Simulation.Tests;
 using System.Threading;
 using System.Threading.Tasks;
+using Worlds;
 
 namespace Fonts.Systems.Tests
 {
@@ -10,6 +14,19 @@ namespace Fonts.Systems.Tests
         protected override void SetUp()
         {
             base.SetUp();
+            ComponentType.Register<IsFont>();
+            ComponentType.Register<IsFontRequest>();
+            ComponentType.Register<IsGlyph>();
+            ComponentType.Register<IsDataRequest>();
+            ComponentType.Register<IsDataSource>();
+            ComponentType.Register<IsData>();
+            ComponentType.Register<IsProgram>();
+            ComponentType.Register<ProgramAllocation>();
+            ComponentType.Register<FontMetrics>();
+            ComponentType.Register<FontName>();
+            ArrayType.Register<BinaryData>();
+            ArrayType.Register<Kerning>();
+            ArrayType.Register<FontGlyph>();
             Simulator.AddSystem<DataImportSystem>();
             Simulator.AddSystem<FontImportSystem>();
         }
@@ -17,7 +34,7 @@ namespace Fonts.Systems.Tests
         [Test, CancelAfter(8000)]
         public async Task ImportArialFont(CancellationToken cancellation)
         {
-            Font font = new(World, "*/Arial.otf");
+            Font font = new(World, "Arial.otf");
             await font.UntilCompliant(Simulate, cancellation);
 
             Assert.That(font.FamilyName.ToString(), Is.EqualTo("Arial"));
