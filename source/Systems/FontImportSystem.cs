@@ -150,16 +150,16 @@ namespace Fonts.Systems
             face.SetPixelSize(PixelSize, PixelSize);
 
             Operation operation = new();
-            LoadGlyphs(font, face, ref operation);
+            Operation.SelectedEntity selectedEntity = operation.SelectEntity(font);
 
             //set metrics
             if (!font.ContainsComponent<FontMetrics>())
             {
-                operation.AddComponent(new FontMetrics(face.Height));
+                selectedEntity.AddComponent(new FontMetrics(face.Height));
             }
             else
             {
-                operation.SetComponent(new FontMetrics(face.Height));
+                selectedEntity.SetComponent(new FontMetrics(face.Height));
             }
 
             //set family name
@@ -167,30 +167,30 @@ namespace Fonts.Systems
             int length = face.CopyFamilyName(familyName);
             if (!font.ContainsComponent<FontName>())
             {
-                operation.AddComponent(new FontName(familyName[..length]));
+                selectedEntity.AddComponent(new FontName(familyName[..length]));
             }
             else
             {
-                operation.SetComponent(new FontName(familyName[..length]));
+                selectedEntity.SetComponent(new FontName(familyName[..length]));
             }
 
             if (font.TryGetComponent(out IsFont component))
             {
                 component.version++;
-                operation.SetComponent(component);
+                selectedEntity.SetComponent(component);
             }
             else
             {
-                operation.AddComponent(new IsFont());
+                selectedEntity.AddComponent(new IsFont());
             }
 
+            LoadGlyphs(font, face, ref operation);
             operations.Add(operation);
             return true;
         }
 
         private void LoadGlyphs(Entity font, Face face, ref Operation operation)
         {
-            operation.SelectEntity(font);
             bool createGlyphs = false;
             if (font.TryGetArray(out USpan<FontGlyph> existingList))
             {
@@ -249,7 +249,7 @@ namespace Fonts.Systems
                     }
                 }
 
-                operation.CreateArray<Kerning>(kerningBuffer.Slice(0, kerningCount));
+                operation.CreateArray(kerningBuffer.Slice(0, kerningCount));
 
                 rint glyphReference = (rint)(referenceCount + i + 1);
                 operation.ClearSelection();
@@ -260,7 +260,7 @@ namespace Fonts.Systems
 
             if (createGlyphs)
             {
-                operation.CreateArray<FontGlyph>(glyphsBuffer.AsSpan());
+                operation.CreateArray(glyphsBuffer.AsSpan());
             }
             else
             {
