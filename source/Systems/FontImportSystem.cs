@@ -222,7 +222,6 @@ namespace Fonts.Systems
                 nameBuffer[2] = '\'';
 
                 //create glyph entity
-                operation.ClearSelection();
                 operation.CreateEntity();
                 operation.AddComponent(new IsGlyph(c, metrics.Advance, metrics.HorizontalBearing, glyphOffset, metrics.Size));
                 operation.SetParent(font);
