@@ -3,16 +3,14 @@ using Data.Components;
 using Fonts.Components;
 using FreeType;
 using Simulation;
-using Simulation.Functions;
 using System;
 using System.Diagnostics;
-using System.Runtime.InteropServices;
 using Unmanaged;
 using Worlds;
 
 namespace Fonts.Systems
 {
-    public readonly struct FontImportSystem : ISystem
+    public readonly partial struct FontImportSystem : ISystem
     {
         public const uint PixelSize = 32;
         public const uint GlyphCount = 128;
@@ -23,30 +21,20 @@ namespace Fonts.Systems
         private readonly Dictionary<Entity, uint> fontVersions;
         private readonly Dictionary<Entity, Face> fontFaces;
         private readonly List<Operation> operations;
-
-        readonly unsafe StartSystem ISystem.Start => new(&Start);
-        readonly unsafe UpdateSystem ISystem.Update => new(&Update);
-        readonly unsafe FinishSystem ISystem.Finish => new(&Finish);
-
-        [UnmanagedCallersOnly]
-        private static void Start(SystemContainer container, World world)
+        void ISystem.Start(in SystemContainer systemContainer, in World world)
         {
         }
 
-        [UnmanagedCallersOnly]
-        private static void Update(SystemContainer container, World world, TimeSpan delta)
+        void ISystem.Update(in SystemContainer systemContainer, in World world, in TimeSpan delta)
         {
-            ref FontImportSystem system = ref container.Read<FontImportSystem>();
-            system.Update(world);
+            Update(world);
         }
 
-        [UnmanagedCallersOnly]
-        private static void Finish(SystemContainer container, World world)
+        void ISystem.Finish(in SystemContainer systemContainer, in World world)
         {
-            if (container.World == world)
+            if (systemContainer.World == world)
             {
-                ref FontImportSystem system = ref container.Read<FontImportSystem>();
-                system.CleanUp();
+                CleanUp();
             }
         }
 
