@@ -67,25 +67,24 @@ namespace Fonts.Systems
 
         void ISystem.Finish(in SystemContainer systemContainer, in World world)
         {
-        }
-
-        void IDisposable.Dispose()
-        {
-            while (operations.Count > 0)
+            if (systemContainer.World == world)
             {
-                Operation operation = operations.RemoveAt(0);
-                operation.Dispose();
-            }
+                while (operations.Count > 0)
+                {
+                    Operation operation = operations.RemoveAt(0);
+                    operation.Dispose();
+                }
 
-            operations.Dispose();
-            foreach (Entity font in fontFaces.Keys)
-            {
-                fontFaces[font].Dispose();
-            }
+                operations.Dispose();
+                foreach (Entity font in fontFaces.Keys)
+                {
+                    fontFaces[font].Dispose();
+                }
 
-            fontFaces.Dispose();
-            fontVersions.Dispose();
-            freeType.Dispose();
+                fontFaces.Dispose();
+                fontVersions.Dispose();
+                freeType.Dispose();
+            }
         }
 
         private readonly void PerformOperations(World world)
