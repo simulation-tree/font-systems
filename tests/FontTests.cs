@@ -21,14 +21,13 @@ namespace Fonts.Systems.Tests
             ComponentType.Register<IsDataSource>();
             ComponentType.Register<IsData>();
             ComponentType.Register<IsProgram>();
-            ComponentType.Register<ProgramAllocation>();
             ComponentType.Register<FontMetrics>();
             ComponentType.Register<FontName>();
             ArrayType.Register<BinaryData>();
             ArrayType.Register<Kerning>();
             ArrayType.Register<FontGlyph>();
-            Simulator.AddSystem<DataImportSystem>();
-            Simulator.AddSystem<FontImportSystem>();
+            Simulator.AddSystem(new DataImportSystem());
+            Simulator.AddSystem(new FontImportSystem());
         }
 
         [Test, CancelAfter(8000)]

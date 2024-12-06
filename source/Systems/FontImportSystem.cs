@@ -16,38 +16,60 @@ namespace Fonts.Systems
         public const uint GlyphCount = 128;
         public const uint AtlasPadding = 4;
 
-        private readonly ComponentQuery<IsFontRequest> fontQuery;
         private readonly Library freeType;
         private readonly Dictionary<Entity, uint> fontVersions;
         private readonly Dictionary<Entity, Face> fontFaces;
         private readonly List<Operation> operations;
+
+        public FontImportSystem()
+        {
+            freeType = new();
+            fontVersions = new();
+            fontFaces = new();
+            operations = new();
+        }
         void ISystem.Start(in SystemContainer systemContainer, in World world)
         {
         }
 
         void ISystem.Update(in SystemContainer systemContainer, in World world, in TimeSpan delta)
         {
-            Update(world);
+            ComponentQuery<IsFontRequest> requestQuery = new(world);
+            foreach (var r in requestQuery)
+            {
+                Entity font = new(world, r.entity);
+                ref IsFontRequest component = ref r.component1;
+                bool sourceChanged;
+                if (!fontVersions.ContainsKey(font))
+                {
+                    sourceChanged = true;
+                }
+                else
+                {
+                    sourceChanged = fontVersions[font] != component.version;
+                }
+
+                if (sourceChanged)
+                {
+                    if (TryLoadFontData(font, component))
+                    {
+                        fontVersions.AddOrSet(font, component.version);
+                    }
+                    else
+                    {
+                        Trace.WriteLine($"Font request for `{font}` failed");
+                    }
+                }
+            }
+
+            PerformOperations(world);
         }
 
         void ISystem.Finish(in SystemContainer systemContainer, in World world)
         {
-            if (systemContainer.World == world)
-            {
-                CleanUp();
-            }
         }
 
-        public FontImportSystem()
-        {
-            freeType = new();
-            fontQuery = new();
-            fontVersions = new();
-            fontFaces = new();
-            operations = new();
-        }
-
-        private void CleanUp()
+        void IDisposable.Dispose()
         {
             while (operations.Count > 0)
             {
@@ -63,48 +85,10 @@ namespace Fonts.Systems
 
             fontFaces.Dispose();
             fontVersions.Dispose();
-            fontQuery.Dispose();
             freeType.Dispose();
         }
 
-        private void Update(World world)
-        {
-            UpdateFontRequests(world);
-            PerformOperations(world);
-        }
-
-        private void UpdateFontRequests(World world)
-        {
-            fontQuery.Update(world);
-            foreach (var x in fontQuery)
-            {
-                IsFontRequest request = x.Component1;
-                bool sourceChanged = false;
-                Entity font = new(world, x.entity);
-                if (!fontVersions.ContainsKey(font))
-                {
-                    sourceChanged = true;
-                }
-                else
-                {
-                    sourceChanged = fontVersions[font] != request.version;
-                }
-
-                if (sourceChanged)
-                {
-                    if (TryFinishFontRequest((font, request)))
-                    {
-                        fontVersions.AddOrSet(font, request.version);
-                    }
-                    else
-                    {
-                        Trace.WriteLine($"Font request for `{font}` failed");
-                    }
-                }
-            }
-        }
-
-        private void PerformOperations(World world)
+        private readonly void PerformOperations(World world)
         {
             while (operations.Count > 0)
             {
@@ -117,9 +101,8 @@ namespace Fonts.Systems
         /// <summary>
         /// Makes sure that the entity has the latest info about the font.
         /// </summary>
-        private unsafe bool TryFinishFontRequest((Entity font, IsFontRequest request) input)
+        private readonly bool TryLoadFontData(Entity font, IsFontRequest request)
         {
-            Entity font = input.font;
             World world = font.GetWorld();
             if (!font.ContainsArray<BinaryData>())
             {
@@ -132,7 +115,7 @@ namespace Fonts.Systems
             {
                 USpan<BinaryData> bytes = font.GetArray<BinaryData>();
                 face = freeType.Load(bytes.Address, bytes.Length);
-                fontFaces.TryAdd(font, face);
+                fontFaces.Add(font, face);
             }
 
             face.SetPixelSize(PixelSize, PixelSize);
@@ -162,10 +145,10 @@ namespace Fonts.Systems
                 selectedEntity.SetComponent(new FontName(familyName[..length]));
             }
 
-            if (font.TryGetComponent(out IsFont component))
+            ref IsFont component = ref font.TryGetComponent<IsFont>(out bool contains);
+            if (contains)
             {
-                component.version++;
-                selectedEntity.SetComponent(component);
+                selectedEntity.SetComponent(new IsFont(component.version + 1));
             }
             else
             {
@@ -177,7 +160,7 @@ namespace Fonts.Systems
             return true;
         }
 
-        private void LoadGlyphs(Entity font, Face face, ref Operation operation)
+        private readonly void LoadGlyphs(Entity font, Face face, ref Operation operation)
         {
             bool createGlyphs = false;
             if (font.TryGetArray(out USpan<FontGlyph> existingList))
