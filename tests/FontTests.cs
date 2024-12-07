@@ -26,8 +26,8 @@ namespace Fonts.Systems.Tests
             ArrayType.Register<BinaryData>();
             ArrayType.Register<Kerning>();
             ArrayType.Register<FontGlyph>();
-            Simulator.AddSystem(new DataImportSystem());
-            Simulator.AddSystem(new FontImportSystem());
+            Simulator.AddSystem<DataImportSystem>();
+            Simulator.AddSystem<FontImportSystem>();
         }
 
         [Test, CancelAfter(8000)]

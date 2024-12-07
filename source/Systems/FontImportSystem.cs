@@ -21,15 +21,24 @@ namespace Fonts.Systems
         private readonly Dictionary<Entity, Face> fontFaces;
         private readonly List<Operation> operations;
 
-        public FontImportSystem()
+        private FontImportSystem(Library freeType, Dictionary<Entity, uint> fontVersions, Dictionary<Entity, Face> fontFaces, List<Operation> operations)
         {
-            freeType = new();
-            fontVersions = new();
-            fontFaces = new();
-            operations = new();
+            this.freeType = freeType;
+            this.fontVersions = fontVersions;
+            this.fontFaces = fontFaces;
+            this.operations = operations;
         }
+
         void ISystem.Start(in SystemContainer systemContainer, in World world)
         {
+            if (systemContainer.World == world)
+            {
+                Library freeType = new();
+                Dictionary<Entity, uint> fontVersions = new();
+                Dictionary<Entity, Face> fontFaces = new();
+                List<Operation> operations = new();
+                systemContainer.Write(new FontImportSystem(freeType, fontVersions, fontFaces, operations));
+            }
         }
 
         void ISystem.Update(in SystemContainer systemContainer, in World world, in TimeSpan delta)
