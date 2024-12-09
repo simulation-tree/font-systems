@@ -12,7 +12,6 @@ namespace Fonts.Systems
 {
     public readonly partial struct FontImportSystem : ISystem
     {
-        public const uint PixelSize = 32;
         public const uint GlyphCount = 128;
         public const uint AtlasPadding = 4;
 
@@ -126,7 +125,8 @@ namespace Fonts.Systems
                 fontFaces.Add(font, face);
             }
 
-            face.SetPixelSize(PixelSize, PixelSize);
+            uint pixelSize = request.pixelSize;
+            face.SetPixelSize(pixelSize, pixelSize);
 
             Operation operation = new();
             Operation.SelectedEntity selectedEntity = operation.SelectEntity(font);
