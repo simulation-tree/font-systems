@@ -43,9 +43,12 @@ namespace Fonts.Systems.Tests
             //also check the `a` character
             Glyph a = font['a'];
             Assert.That(a.Character, Is.EqualTo('a'));
-            Assert.That(a.Advance, Is.EqualTo((576, 960)));
-            Assert.That(a.Offset, Is.EqualTo((0, 9)));
-            Assert.That(a.Size, Is.EqualTo((576, 576)));
+            Assert.That(a.Advance.x / (float)font.PixelSize, Is.EqualTo(36));
+            Assert.That(a.Advance.y / (float)font.PixelSize, Is.EqualTo(60));
+            Assert.That(a.Offset.x / (float)font.PixelSize, Is.EqualTo(0.03125f));
+            Assert.That(a.Offset.y / (float)font.PixelSize, Is.EqualTo(0.53125f));
+            Assert.That(a.Size.x / (float)font.PixelSize, Is.EqualTo(32));
+            Assert.That(a.Size.y / (float)font.PixelSize, Is.EqualTo(34));
         }
     }
 }
