@@ -118,6 +118,7 @@ namespace Fonts.Systems
                 return false;
             }
 
+            Schema schema = world.Schema;
             if (!fontFaces.TryGetValue(font, out Face face))
             {
                 USpan<BinaryData> bytes = font.GetArray<BinaryData>();
@@ -134,11 +135,11 @@ namespace Fonts.Systems
             //set metrics
             if (!font.ContainsComponent<FontMetrics>())
             {
-                selectedEntity.AddComponent(new FontMetrics(face.Height));
+                selectedEntity.AddComponent(new FontMetrics(face.Height), schema);
             }
             else
             {
-                selectedEntity.SetComponent(new FontMetrics(face.Height));
+                selectedEntity.SetComponent(new FontMetrics(face.Height), schema);
             }
 
             //set family name
@@ -146,29 +147,29 @@ namespace Fonts.Systems
             int length = face.CopyFamilyName(familyName);
             if (!font.ContainsComponent<FontName>())
             {
-                selectedEntity.AddComponent(new FontName(familyName[..length]));
+                selectedEntity.AddComponent(new FontName(familyName[..length]), schema);
             }
             else
             {
-                selectedEntity.SetComponent(new FontName(familyName[..length]));
+                selectedEntity.SetComponent(new FontName(familyName[..length]), schema);
             }
 
             ref IsFont component = ref font.TryGetComponent<IsFont>(out bool contains);
             if (contains)
             {
-                selectedEntity.SetComponent(new IsFont(component.version + 1));
+                selectedEntity.SetComponent(new IsFont(component.version + 1), schema);
             }
             else
             {
-                selectedEntity.AddComponent(new IsFont());
+                selectedEntity.AddComponent(new IsFont(), schema);
             }
 
-            LoadGlyphs(font, face, ref operation);
+            LoadGlyphs(font, face, ref operation, schema);
             operations.Add(operation);
             return true;
         }
 
-        private readonly void LoadGlyphs(Entity font, Face face, ref Operation operation)
+        private readonly void LoadGlyphs(Entity font, Face face, ref Operation operation, Schema schema)
         {
             bool createGlyphs = false;
             if (font.TryGetArray(out USpan<FontGlyph> existingList))
@@ -214,7 +215,7 @@ namespace Fonts.Systems
 
                 //create glyph entity
                 operation.CreateEntity();
-                operation.AddComponent(new IsGlyph(c, metrics.Advance, metrics.HorizontalBearing, glyphOffset, metrics.Size));
+                operation.AddComponent(new IsGlyph(c, metrics.Advance, metrics.HorizontalBearing, glyphOffset, metrics.Size), schema);
                 operation.SetParent(font);
 
                 kerningCount = 0;
@@ -227,7 +228,7 @@ namespace Fonts.Systems
                     }
                 }
 
-                operation.CreateArray(kerningBuffer.Slice(0, kerningCount));
+                operation.CreateArray(kerningBuffer.Slice(0, kerningCount), schema);
 
                 rint glyphReference = (rint)(referenceCount + i + 1);
                 operation.ClearSelection();
@@ -238,12 +239,12 @@ namespace Fonts.Systems
 
             if (createGlyphs)
             {
-                operation.CreateArray(glyphsBuffer.AsSpan());
+                operation.CreateArray(glyphsBuffer.AsSpan(), schema);
             }
             else
             {
-                operation.ResizeArray<FontGlyph>(GlyphCount);
-                operation.SetArrayElements(0, glyphsBuffer.AsSpan());
+                operation.ResizeArray<FontGlyph>(GlyphCount, schema);
+                operation.SetArrayElements(0, glyphsBuffer.AsSpan(), schema);
             }
         }
     }

@@ -11,29 +11,43 @@ namespace Fonts.Systems.Tests
 {
     public class FontTests : SimulationTests
     {
+        static FontTests()
+        {
+            TypeLayout.Register<IsFont>("IsFont");
+            TypeLayout.Register<IsFontRequest>("IsFontRequest");
+            TypeLayout.Register<IsGlyph>("IsGlyph");
+            TypeLayout.Register<IsDataRequest>("IsDataRequest");
+            TypeLayout.Register<IsDataSource>("IsDataSource");
+            TypeLayout.Register<IsData>("IsData");
+            TypeLayout.Register<FontMetrics>("FontMetrics");
+            TypeLayout.Register<FontName>("FontName");
+            TypeLayout.Register<BinaryData>("BinaryData");
+            TypeLayout.Register<Kerning>("Kerning");
+            TypeLayout.Register<FontGlyph>("FontGlyph");
+        }
+
         protected override void SetUp()
         {
             base.SetUp();
-            ComponentType.Register<IsFont>();
-            ComponentType.Register<IsFontRequest>();
-            ComponentType.Register<IsGlyph>();
-            ComponentType.Register<IsDataRequest>();
-            ComponentType.Register<IsDataSource>();
-            ComponentType.Register<IsData>();
-            ComponentType.Register<IsProgram>();
-            ComponentType.Register<FontMetrics>();
-            ComponentType.Register<FontName>();
-            ArrayType.Register<BinaryData>();
-            ArrayType.Register<Kerning>();
-            ArrayType.Register<FontGlyph>();
-            Simulator.AddSystem<DataImportSystem>();
-            Simulator.AddSystem<FontImportSystem>();
+            world.Schema.RegisterComponent<IsFont>();
+            world.Schema.RegisterComponent<IsFontRequest>();
+            world.Schema.RegisterComponent<IsGlyph>();
+            world.Schema.RegisterComponent<IsDataRequest>();
+            world.Schema.RegisterComponent<IsDataSource>();
+            world.Schema.RegisterComponent<IsData>();
+            world.Schema.RegisterComponent<FontMetrics>();
+            world.Schema.RegisterComponent<FontName>();
+            world.Schema.RegisterArrayElement<BinaryData>();
+            world.Schema.RegisterArrayElement<Kerning>();
+            world.Schema.RegisterArrayElement<FontGlyph>();
+            simulator.AddSystem<DataImportSystem>();
+            simulator.AddSystem<FontImportSystem>();
         }
 
         [Test, CancelAfter(8000)]
         public async Task ImportArialFont(CancellationToken cancellation)
         {
-            Font font = new(World, "Arial.otf");
+            Font font = new(world, "Arial.otf");
             await font.UntilCompliant(Simulate, cancellation);
 
             Assert.That(font.FamilyName.ToString(), Is.EqualTo("Arial"));
