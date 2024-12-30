@@ -1,7 +1,6 @@
 ﻿using Data.Components;
 using Data.Systems;
 using Fonts.Components;
-using Simulation.Components;
 using Simulation.Tests;
 using System.Threading;
 using System.Threading.Tasks;
@@ -13,17 +12,17 @@ namespace Fonts.Systems.Tests
     {
         static FontTests()
         {
-            TypeLayout.Register<IsFont>("IsFont");
-            TypeLayout.Register<IsFontRequest>("IsFontRequest");
-            TypeLayout.Register<IsGlyph>("IsGlyph");
-            TypeLayout.Register<IsDataRequest>("IsDataRequest");
-            TypeLayout.Register<IsDataSource>("IsDataSource");
-            TypeLayout.Register<IsData>("IsData");
-            TypeLayout.Register<FontMetrics>("FontMetrics");
-            TypeLayout.Register<FontName>("FontName");
-            TypeLayout.Register<BinaryData>("BinaryData");
-            TypeLayout.Register<Kerning>("Kerning");
-            TypeLayout.Register<FontGlyph>("FontGlyph");
+            TypeLayout.Register<IsFont>();
+            TypeLayout.Register<IsFontRequest>();
+            TypeLayout.Register<IsGlyph>();
+            TypeLayout.Register<IsDataRequest>();
+            TypeLayout.Register<IsDataSource>();
+            TypeLayout.Register<IsData>();
+            TypeLayout.Register<FontMetrics>();
+            TypeLayout.Register<FontName>();
+            TypeLayout.Register<BinaryData>();
+            TypeLayout.Register<Kerning>();
+            TypeLayout.Register<FontGlyph>();
         }
 
         protected override void SetUp()
