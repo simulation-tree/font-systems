@@ -4,6 +4,7 @@ using Fonts.Components;
 using Simulation.Tests;
 using System.Threading;
 using System.Threading.Tasks;
+using Types;
 using Worlds;
 
 namespace Fonts.Systems.Tests
