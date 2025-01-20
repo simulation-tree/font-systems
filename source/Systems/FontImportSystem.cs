@@ -18,9 +18,9 @@ namespace Fonts.Systems
         private readonly Library freeType;
         private readonly Dictionary<Entity, uint> fontVersions;
         private readonly Dictionary<Entity, Face> fontFaces;
-        private readonly List<Operation> operations;
+        private readonly Stack<Operation> operations;
 
-        private FontImportSystem(Library freeType, Dictionary<Entity, uint> fontVersions, Dictionary<Entity, Face> fontFaces, List<Operation> operations)
+        private FontImportSystem(Library freeType, Dictionary<Entity, uint> fontVersions, Dictionary<Entity, Face> fontFaces, Stack<Operation> operations)
         {
             this.freeType = freeType;
             this.fontVersions = fontVersions;
@@ -35,7 +35,7 @@ namespace Fonts.Systems
                 Library freeType = new();
                 Dictionary<Entity, uint> fontVersions = new();
                 Dictionary<Entity, Face> fontFaces = new();
-                List<Operation> operations = new();
+                Stack<Operation> operations = new();
                 systemContainer.Write(new FontImportSystem(freeType, fontVersions, fontFaces, operations));
             }
         }
@@ -77,9 +77,8 @@ namespace Fonts.Systems
         {
             if (systemContainer.World == world)
             {
-                while (operations.Count > 0)
+                while (operations.TryPop(out Operation operation))
                 {
-                    Operation operation = operations.RemoveAt(0);
                     operation.Dispose();
                 }
 
@@ -97,9 +96,8 @@ namespace Fonts.Systems
 
         private readonly void PerformOperations(World world)
         {
-            while (operations.Count > 0)
+            while (operations.TryPop(out Operation operation))
             {
-                Operation operation = operations.RemoveAt(0);
                 world.Perform(operation);
                 operation.Dispose();
             }
@@ -165,7 +163,7 @@ namespace Fonts.Systems
             }
 
             LoadGlyphs(font, face, ref operation, schema);
-            operations.Add(operation);
+            operations.Push(operation);
             return true;
         }
 
