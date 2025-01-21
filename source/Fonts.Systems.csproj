@@ -12,7 +12,7 @@
 		<ProjectReference Include="..\..\fonts\source\Fonts.csproj" />
 		<ProjectReference Include="..\..\freetype\source\FreeType.csproj" />
 		<ProjectReference Include="..\..\simulation\source\Simulation.csproj" />
-		<ProjectReference Include="..\..\simulation\generator\Simulation.ImplementationGenerators.csproj">
+		<ProjectReference Include="..\..\simulation\generator\Simulation.Generator.csproj">
 			<OutputItemType>Analyzer</OutputItemType>
 			<ReferenceOutputAssembly>false</ReferenceOutputAssembly>
 		</ProjectReference>
