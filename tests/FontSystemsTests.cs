@@ -9,7 +9,7 @@ namespace Fonts.Systems.Tests
     {
         static FontSystemsTests()
         {
-            TypeRegistry.Load<Data.TypeBank>();
+            TypeRegistry.Load<Data.Core.TypeBank>();
             TypeRegistry.Load<Fonts.TypeBank>();
         }
 
@@ -23,7 +23,7 @@ namespace Fonts.Systems.Tests
         protected override Schema CreateSchema()
         {
             Schema schema = base.CreateSchema();
-            schema.Load<Data.SchemaBank>();
+            schema.Load<Data.Core.SchemaBank>();
             schema.Load<Fonts.SchemaBank>();
             return schema;
         }
