@@ -1,4 +1,5 @@
-﻿using Data.Systems;
+﻿using Data;
+using Data.Systems;
 using Simulation.Tests;
 using Types;
 using Worlds;
@@ -9,8 +10,8 @@ namespace Fonts.Systems.Tests
     {
         static FontSystemsTests()
         {
-            TypeRegistry.Load<Data.Core.TypeBank>();
-            TypeRegistry.Load<Fonts.TypeBank>();
+            TypeRegistry.Load<DataTypeBank>();
+            TypeRegistry.Load<FontsTypeBank>();
         }
 
         protected override void SetUp()
@@ -23,8 +24,8 @@ namespace Fonts.Systems.Tests
         protected override Schema CreateSchema()
         {
             Schema schema = base.CreateSchema();
-            schema.Load<Data.Core.SchemaBank>();
-            schema.Load<Fonts.SchemaBank>();
+            schema.Load<DataSchemaBank>();
+            schema.Load<FontsSchemaBank>();
             return schema;
         }
     }
