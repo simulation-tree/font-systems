@@ -66,8 +66,12 @@ namespace Fonts.Systems
                     }
                     else
                     {
-                        Trace.TraceError($"Font `{font}` could not be loaded");
-                        request.status = IsFontRequest.Status.NotFound;
+                        request.duration += delta;
+                        if (request.duration >= request.timeout)
+                        {
+                            Trace.TraceError($"Font `{font}` could not be loaded");
+                            request.status = IsFontRequest.Status.NotFound;
+                        }
                     }
                 }
             }
