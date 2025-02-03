@@ -1,5 +1,5 @@
 ﻿using Collections;
-using Data.Components;
+using Data.Messages;
 using Fonts.Components;
 using FreeType;
 using Simulation;
@@ -43,29 +43,31 @@ namespace Fonts.Systems
         void ISystem.Update(in SystemContainer systemContainer, in World world, in TimeSpan delta)
         {
             ComponentQuery<IsFontRequest> requestQuery = new(world);
+            Simulator simulator = systemContainer.simulator;
             foreach (var r in requestQuery)
             {
+                ref IsFontRequest request = ref r.component1;
                 Entity font = new(world, r.entity);
-                ref IsFontRequest component = ref r.component1;
-                bool sourceChanged;
-                if (!fontVersions.ContainsKey(font))
+                if (request.status == IsFontRequest.Status.Submitted)
                 {
-                    sourceChanged = true;
-                }
-                else
-                {
-                    sourceChanged = fontVersions[font] != component.version;
+                    request.status = IsFontRequest.Status.Loading;
+                    Trace.WriteLine($"Started searching data for font `{font}` with address `{request.address}`");
                 }
 
-                if (sourceChanged)
+                if (request.status == IsFontRequest.Status.Loading)
                 {
-                    if (TryLoadFontData(font, component))
+                    IsFontRequest dataRequest = request;
+                    if (TryLoadFont(font, dataRequest, simulator))
                     {
-                        fontVersions.AddOrSet(font, component.version);
+                        Trace.WriteLine($"Font `{font}` has been loaded");
+
+                        //todo: being done this way because reference to the request may have shifted
+                        world.SetComponent(r.entity, dataRequest.BecomeLoaded());
                     }
                     else
                     {
-                        Trace.WriteLine($"Font request for `{font}` failed");
+                        Trace.TraceError($"Font `{font}` could not be loaded");
+                        request.status = IsFontRequest.Status.NotFound;
                     }
                 }
             }
@@ -106,22 +108,28 @@ namespace Fonts.Systems
         /// <summary>
         /// Makes sure that the entity has the latest info about the font.
         /// </summary>
-        private readonly bool TryLoadFontData(Entity font, IsFontRequest request)
+        private readonly bool TryLoadFont(Entity font, IsFontRequest request, Simulator simulator)
         {
-            World world = font.GetWorld();
-            if (!font.ContainsArray<BinaryData>())
-            {
-                //wait for bytes to become available
-                Trace.WriteLine($"Font data for `{font}` not available yet, skipping");
-                return false;
-            }
-
-            Schema schema = world.Schema;
             if (!fontFaces.TryGetValue(font, out Face face))
             {
-                USpan<BinaryData> bytes = font.GetArray<BinaryData>();
-                face = freeType.Load(bytes.Address, bytes.Length);
-                fontFaces.Add(font, face);
+                HandleDataRequest message = new(font, request.address);
+                if (simulator.TryHandleMessage(ref message))
+                {
+                    if (message.loaded)
+                    {
+                        USpan<byte> bytes = message.Bytes;
+                        face = freeType.Load(bytes);
+                        fontFaces.Add(font, face);
+                    }
+                    else
+                    {
+                        return false;
+                    }
+                }
+                else
+                {
+                    return false;
+                }
             }
 
             uint pixelSize = request.pixelSize;
@@ -131,6 +139,7 @@ namespace Fonts.Systems
             Operation.SelectedEntity selectedEntity = operation.SelectEntity(font);
 
             //set metrics
+            Schema schema = font.world.Schema;
             if (!font.ContainsComponent<FontMetrics>())
             {
                 selectedEntity.AddComponent(new FontMetrics(face.Height), schema);
@@ -152,14 +161,13 @@ namespace Fonts.Systems
                 selectedEntity.SetComponent(new FontName(familyName[..length]), schema);
             }
 
-            ref IsFont component = ref font.TryGetComponent<IsFont>(out bool contains);
-            if (contains)
+            if (font.TryGetComponent(out IsFont component))
             {
-                selectedEntity.SetComponent(new IsFont(component.version + 1), schema);
+                selectedEntity.SetComponent(component.IncrementVersion(pixelSize), schema);
             }
             else
             {
-                selectedEntity.AddComponent(new IsFont(), schema);
+                selectedEntity.AddComponent(new IsFont(0, pixelSize), schema);
             }
 
             LoadGlyphs(font, face, ref operation, schema);
@@ -194,7 +202,7 @@ namespace Fonts.Systems
 
             //collect glyph textures for each char
             Span<char> nameBuffer = stackalloc char[4];
-            uint referenceCount = font.GetReferenceCount();
+            uint referenceCount = font.References;
             USpan<Kerning> kerningBuffer = stackalloc Kerning[96];
             uint kerningCount = 0;
             using Array<FontGlyph> glyphsBuffer = new(GlyphCount);
