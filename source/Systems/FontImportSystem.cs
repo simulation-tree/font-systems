@@ -42,35 +42,43 @@ namespace Fonts.Systems
 
         void ISystem.Update(in SystemContainer systemContainer, in World world, in TimeSpan delta)
         {
-            ComponentQuery<IsFontRequest> requestQuery = new(world);
             Simulator simulator = systemContainer.simulator;
-            foreach (var r in requestQuery)
+            ComponentType componentType = world.Schema.GetComponent<IsFontRequest>();
+            foreach (Chunk chunk in world.Chunks)
             {
-                ref IsFontRequest request = ref r.component1;
-                Entity font = new(world, r.entity);
-                if (request.status == IsFontRequest.Status.Submitted)
+                if (chunk.Definition.Contains(componentType))
                 {
-                    request.status = IsFontRequest.Status.Loading;
-                    Trace.WriteLine($"Started searching data for font `{font}` with address `{request.address}`");
-                }
-
-                if (request.status == IsFontRequest.Status.Loading)
-                {
-                    IsFontRequest dataRequest = request;
-                    if (TryLoadFont(font, dataRequest, simulator))
+                    USpan<uint> entities = chunk.Entities;
+                    USpan<IsFontRequest> components = chunk.GetComponents<IsFontRequest>(componentType);
+                    for (uint i = 0; i < entities.Length; i++)
                     {
-                        Trace.WriteLine($"Font `{font}` has been loaded");
-
-                        //todo: being done this way because reference to the request may have shifted
-                        world.SetComponent(r.entity, dataRequest.BecomeLoaded());
-                    }
-                    else
-                    {
-                        request.duration += delta;
-                        if (request.duration >= request.timeout)
+                        ref IsFontRequest request = ref components[i];
+                        Entity font = new(world, entities[i]);
+                        if (request.status == IsFontRequest.Status.Submitted)
                         {
-                            Trace.TraceError($"Font `{font}` could not be loaded");
-                            request.status = IsFontRequest.Status.NotFound;
+                            request.status = IsFontRequest.Status.Loading;
+                            Trace.WriteLine($"Started searching data for font `{font}` with address `{request.address}`");
+                        }
+
+                        if (request.status == IsFontRequest.Status.Loading)
+                        {
+                            IsFontRequest dataRequest = request;
+                            if (TryLoadFont(font, dataRequest, simulator))
+                            {
+                                Trace.WriteLine($"Font `{font}` has been loaded");
+
+                                //todo: being done this way because reference to the request may have shifted
+                                font.SetComponent(dataRequest.BecomeLoaded());
+                            }
+                            else
+                            {
+                                request.duration += delta;
+                                if (request.duration >= request.timeout)
+                                {
+                                    Trace.TraceError($"Font `{font}` could not be loaded");
+                                    request.status = IsFontRequest.Status.NotFound;
+                                }
+                            }
                         }
                     }
                 }
