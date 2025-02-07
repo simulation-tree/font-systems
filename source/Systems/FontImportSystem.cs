@@ -112,7 +112,7 @@ namespace Fonts.Systems
         {
             while (operations.TryPop(out Operation operation))
             {
-                world.Perform(operation);
+                operation.Perform(world);
                 operation.Dispose();
             }
         }
@@ -148,39 +148,19 @@ namespace Fonts.Systems
             face.SetPixelSize(pixelSize, pixelSize);
 
             Operation operation = new();
-            Operation.SelectedEntity selectedEntity = operation.SelectEntity(font);
+            operation.SelectEntity(font);
 
             //set metrics
             Schema schema = font.world.Schema;
-            if (!font.ContainsComponent<FontMetrics>())
-            {
-                selectedEntity.AddComponent(new FontMetrics(face.Height), schema);
-            }
-            else
-            {
-                selectedEntity.SetComponent(new FontMetrics(face.Height), schema);
-            }
+            operation.AddOrSetComponent(new FontMetrics(face.Height));
 
             //set family name
             Span<char> familyName = stackalloc char[128];
             int length = face.CopyFamilyName(familyName);
-            if (!font.ContainsComponent<FontName>())
-            {
-                selectedEntity.AddComponent(new FontName(familyName[..length]), schema);
-            }
-            else
-            {
-                selectedEntity.SetComponent(new FontName(familyName[..length]), schema);
-            }
+            operation.AddOrSetComponent(new FontName(familyName[..length]));
 
-            if (font.TryGetComponent(out IsFont component))
-            {
-                selectedEntity.SetComponent(component.IncrementVersion(pixelSize), schema);
-            }
-            else
-            {
-                selectedEntity.AddComponent(new IsFont(0, pixelSize), schema);
-            }
+            font.TryGetComponent(out IsFont component);
+            operation.AddOrSetComponent(new IsFont(component.version + 1, pixelSize));
 
             LoadGlyphs(font, face, ref operation, schema);
             operations.Push(operation);
@@ -189,7 +169,6 @@ namespace Fonts.Systems
 
         private readonly void LoadGlyphs(Entity font, Face face, ref Operation operation, Schema schema)
         {
-            bool createGlyphs = false;
             if (font.TryGetArray(out USpan<FontGlyph> existingList))
             {
                 //get glyph collection and reset to empty
@@ -199,6 +178,8 @@ namespace Fonts.Systems
                 }
 
                 operation.ClearSelection();
+
+                //todo: maybe have an operation that removes referenced entities and destroyed them at the same time?
                 foreach (FontGlyph oldGlyph in existingList)
                 {
                     uint glyphEntity = font.GetReference(oldGlyph.value);
@@ -206,10 +187,6 @@ namespace Fonts.Systems
                 }
 
                 operation.DestroySelected();
-            }
-            else
-            {
-                createGlyphs = true;
             }
 
             //collect glyph textures for each char
@@ -232,8 +209,9 @@ namespace Fonts.Systems
                 nameBuffer[2] = '\'';
 
                 //create glyph entity
+                operation.ClearSelection();
                 operation.CreateEntity();
-                operation.AddComponent(new IsGlyph(c, metrics.Advance, metrics.HorizontalBearing, glyphOffset, metrics.Size), schema);
+                operation.AddComponent(new IsGlyph(c, metrics.Advance, metrics.HorizontalBearing, glyphOffset, metrics.Size));
                 operation.SetParent(font);
 
                 kerningCount = 0;
@@ -246,7 +224,7 @@ namespace Fonts.Systems
                     }
                 }
 
-                operation.CreateArray(kerningBuffer.Slice(0, kerningCount), schema);
+                operation.CreateArray(kerningBuffer.Slice(0, kerningCount));
 
                 rint glyphReference = (rint)(referenceCount + i + 1);
                 operation.ClearSelection();
@@ -255,15 +233,7 @@ namespace Fonts.Systems
                 glyphsBuffer[i] = new(glyphReference);
             }
 
-            if (createGlyphs)
-            {
-                operation.CreateArray(glyphsBuffer.AsSpan(), schema);
-            }
-            else
-            {
-                operation.ResizeArray<FontGlyph>(GlyphCount, schema);
-                operation.SetArrayElements(0, glyphsBuffer.AsSpan(), schema);
-            }
+            operation.CreateOrSetArray(glyphsBuffer.AsSpan());
         }
     }
 }
