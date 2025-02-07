@@ -124,7 +124,7 @@ namespace Fonts.Systems
         {
             if (!fontFaces.TryGetValue(font, out Face face))
             {
-                LoadData message = new(font, request.address);
+                LoadData message = new(font.world, request.address);
                 if (simulator.TryHandleMessage(ref message))
                 {
                     if (message.IsLoaded)
@@ -152,7 +152,6 @@ namespace Fonts.Systems
             operation.SelectEntity(font);
 
             //set metrics
-            Schema schema = font.world.Schema;
             operation.AddOrSetComponent(new FontMetrics(face.Height));
 
             //set family name
@@ -163,12 +162,12 @@ namespace Fonts.Systems
             font.TryGetComponent(out IsFont component);
             operation.AddOrSetComponent(new IsFont(component.version + 1, pixelSize));
 
-            LoadGlyphs(font, face, ref operation, schema);
+            LoadGlyphs(font, face, ref operation);
             operations.Push(operation);
             return true;
         }
 
-        private readonly void LoadGlyphs(Entity font, Face face, ref Operation operation, Schema schema)
+        private readonly void LoadGlyphs(Entity font, Face face, ref Operation operation)
         {
             if (font.TryGetArray(out USpan<FontGlyph> existingList))
             {
