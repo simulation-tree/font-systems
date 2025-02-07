@@ -124,14 +124,15 @@ namespace Fonts.Systems
         {
             if (!fontFaces.TryGetValue(font, out Face face))
             {
-                HandleDataRequest message = new(font, request.address);
+                LoadData message = new(font, request.address);
                 if (simulator.TryHandleMessage(ref message))
                 {
-                    if (message.loaded)
+                    if (message.IsLoaded)
                     {
                         USpan<byte> bytes = message.Bytes;
                         face = freeType.Load(bytes);
                         fontFaces.Add(font, face);
+                        message.Dispose();
                     }
                     else
                     {
