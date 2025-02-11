@@ -5,11 +5,13 @@ using FreeType;
 using Simulation;
 using System;
 using System.Diagnostics;
+using System.Runtime.CompilerServices;
 using Unmanaged;
 using Worlds;
 
 namespace Fonts.Systems
 {
+    [SkipLocalsInit]
     public readonly partial struct FontImportSystem : ISystem
     {
         public const uint GlyphCount = 128;
@@ -190,7 +192,6 @@ namespace Fonts.Systems
             }
 
             //collect glyph textures for each char
-            Span<char> nameBuffer = stackalloc char[4];
             uint referenceCount = font.References;
             USpan<Kerning> kerningBuffer = stackalloc Kerning[96];
             uint kerningCount = 0;
@@ -203,10 +204,6 @@ namespace Fonts.Systems
                 (int x, int y) glyphOffset = (loadedGlyph.Left, loadedGlyph.Top);
                 //todo: fault: fonts only have information about horizontal bearing, never vertical, assuming that all text
                 //will be laid out horizontally
-
-                nameBuffer[0] = '\'';
-                nameBuffer[1] = c;
-                nameBuffer[2] = '\'';
 
                 //create glyph entity
                 operation.ClearSelection();
