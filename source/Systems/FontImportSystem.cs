@@ -127,7 +127,7 @@ namespace Fonts.Systems
             if (!fontFaces.TryGetValue(font, out Face face))
             {
                 LoadData message = new(font.world, request.address);
-                if (simulator.TryHandleMessage(ref message))
+                if (simulator.TryHandleMessage(ref message) != default)
                 {
                     if (message.IsLoaded)
                     {
