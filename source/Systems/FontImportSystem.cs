@@ -171,7 +171,7 @@ namespace Fonts.Systems
 
         private readonly void LoadGlyphs(Entity font, Face face, ref Operation operation)
         {
-            if (font.TryGetArray(out USpan<FontGlyph> existingList))
+            if (font.TryGetArray(out Array<FontGlyph> existingList))
             {
                 //get glyph collection and reset to empty
                 foreach (FontGlyph oldGlyph in existingList)
