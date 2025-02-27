@@ -45,10 +45,10 @@ namespace Fonts.Systems
         void ISystem.Update(in SystemContainer systemContainer, in World world, in TimeSpan delta)
         {
             Simulator simulator = systemContainer.simulator;
-            ComponentType componentType = world.Schema.GetComponent<IsFontRequest>();
+            ComponentType componentType = world.Schema.GetComponentType<IsFontRequest>();
             foreach (Chunk chunk in world.Chunks)
             {
-                if (chunk.Definition.Contains(componentType))
+                if (chunk.Definition.ContainsComponent(componentType))
                 {
                     USpan<uint> entities = chunk.Entities;
                     USpan<IsFontRequest> components = chunk.GetComponents<IsFontRequest>(componentType);
