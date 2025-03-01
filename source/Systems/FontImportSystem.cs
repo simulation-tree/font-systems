@@ -171,7 +171,7 @@ namespace Fonts.Systems
 
         private readonly void LoadGlyphs(Entity font, Face face, ref Operation operation)
         {
-            if (font.TryGetArray(out Array<FontGlyph> existingList))
+            if (font.TryGetArray(out Values<FontGlyph> existingList))
             {
                 //get glyph collection and reset to empty
                 foreach (FontGlyph oldGlyph in existingList)
@@ -221,7 +221,7 @@ namespace Fonts.Systems
                     }
                 }
 
-                operation.CreateArray(kerningBuffer.Slice(0, kerningCount));
+                operation.CreateArray(kerningBuffer.GetSpan(kerningCount));
 
                 rint glyphReference = (rint)(referenceCount + i + 1);
                 operation.ClearSelection();
