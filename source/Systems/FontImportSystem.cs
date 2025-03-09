@@ -6,7 +6,6 @@ using Simulation;
 using System;
 using System.Diagnostics;
 using System.Runtime.CompilerServices;
-using Unmanaged;
 using Worlds;
 
 namespace Fonts.Systems
@@ -14,7 +13,7 @@ namespace Fonts.Systems
     [SkipLocalsInit]
     public readonly partial struct FontImportSystem : ISystem
     {
-        public const uint GlyphCount = 128;
+        public const int GlyphCount = 128;
         public const uint AtlasPadding = 4;
 
         private readonly Library freeType;
@@ -50,9 +49,9 @@ namespace Fonts.Systems
             {
                 if (chunk.Definition.ContainsComponent(componentType))
                 {
-                    USpan<uint> entities = chunk.Entities;
-                    USpan<IsFontRequest> components = chunk.GetComponents<IsFontRequest>(componentType);
-                    for (uint i = 0; i < entities.Length; i++)
+                    ReadOnlySpan<uint> entities = chunk.Entities;
+                    Span<IsFontRequest> components = chunk.GetComponents<IsFontRequest>(componentType);
+                    for (int i = 0; i < entities.Length; i++)
                     {
                         ref IsFontRequest request = ref components[i];
                         Entity font = new(world, entities[i]);
@@ -131,7 +130,7 @@ namespace Fonts.Systems
                 {
                     if (message.IsLoaded)
                     {
-                        USpan<byte> bytes = message.Bytes;
+                        System.Span<byte> bytes = message.Bytes;
                         face = freeType.Load(bytes);
                         fontFaces.Add(font, face);
                         message.Dispose();
@@ -157,7 +156,7 @@ namespace Fonts.Systems
             operation.AddOrSetComponent(new FontMetrics(face.Height));
 
             //set family name
-            Span<char> familyName = stackalloc char[128];
+            System.Span<char> familyName = stackalloc char[128];
             int length = face.CopyFamilyName(familyName);
             operation.AddOrSetComponent(new FontName(familyName[..length]));
 
@@ -192,11 +191,11 @@ namespace Fonts.Systems
             }
 
             //collect glyph textures for each char
-            uint referenceCount = font.References.Length;
-            USpan<Kerning> kerningBuffer = stackalloc Kerning[96];
-            uint kerningCount = 0;
+            int referenceCount = font.References.Length;
+            Span<Kerning> kerningBuffer = stackalloc Kerning[96];
+            int kerningCount = 0;
             using Array<FontGlyph> glyphsBuffer = new(GlyphCount);
-            for (uint i = 0; i < GlyphCount; i++)
+            for (int i = 0; i < GlyphCount; i++)
             {
                 char c = (char)i;
                 GlyphSlot loadedGlyph = face.LoadGlyph(face.GetCharIndex(c));
@@ -221,7 +220,7 @@ namespace Fonts.Systems
                     }
                 }
 
-                operation.CreateArray(kerningBuffer.GetSpan(kerningCount));
+                operation.CreateArray(kerningBuffer.Slice(0, kerningCount));
 
                 rint glyphReference = (rint)(referenceCount + i + 1);
                 operation.ClearSelection();
