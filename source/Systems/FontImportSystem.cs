@@ -128,10 +128,9 @@ namespace Fonts.Systems
                 LoadData message = new(font.world, request.address);
                 if (simulator.TryHandleMessage(ref message) != default)
                 {
-                    if (message.IsLoaded)
+                    if (message.TryGetBytes(out ReadOnlySpan<byte> data))
                     {
-                        System.Span<byte> bytes = message.Bytes;
-                        face = freeType.Load(bytes);
+                        face = freeType.Load(data);
                         fontFaces.Add(font, face);
                         message.Dispose();
                     }
@@ -156,7 +155,7 @@ namespace Fonts.Systems
             operation.AddOrSetComponent(new FontMetrics(face.Height));
 
             //set family name
-            System.Span<char> familyName = stackalloc char[128];
+            Span<char> familyName = stackalloc char[128];
             int length = face.CopyFamilyName(familyName);
             operation.AddOrSetComponent(new FontName(familyName[..length]));
 
