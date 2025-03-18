@@ -21,36 +21,45 @@ namespace Fonts.Systems
         private readonly Dictionary<Entity, Face> fontFaces;
         private readonly Stack<Operation> operations;
 
-        private FontImportSystem(Library freeType, Dictionary<Entity, uint> fontVersions, Dictionary<Entity, Face> fontFaces, Stack<Operation> operations)
+        public FontImportSystem()
         {
-            this.freeType = freeType;
-            this.fontVersions = fontVersions;
-            this.fontFaces = fontFaces;
-            this.operations = operations;
+            freeType = new();
+            fontVersions = new(4);
+            fontFaces = new(4);
+            operations = new(4);
         }
 
-        void ISystem.Start(in SystemContainer systemContainer, in World world)
+        public readonly void Dispose()
         {
-            if (systemContainer.World == world)
+            while (operations.TryPop(out Operation operation))
             {
-                Library freeType = new();
-                Dictionary<Entity, uint> fontVersions = new();
-                Dictionary<Entity, Face> fontFaces = new();
-                Stack<Operation> operations = new();
-                systemContainer.Write(new FontImportSystem(freeType, fontVersions, fontFaces, operations));
+                operation.Dispose();
             }
+
+            operations.Dispose();
+            foreach (Face face in fontFaces.Values)
+            {
+                face.Dispose();
+            }
+
+            fontFaces.Dispose();
+            fontVersions.Dispose();
+            freeType.Dispose();
         }
 
-        void ISystem.Update(in SystemContainer systemContainer, in World world, in TimeSpan delta)
+        readonly void ISystem.Start(in SystemContext context, in World world)
         {
-            Simulator simulator = systemContainer.simulator;
-            ComponentType componentType = world.Schema.GetComponentType<IsFontRequest>();
+        }
+
+        void ISystem.Update(in SystemContext context, in World world, in TimeSpan delta)
+        {
+            int componentType = world.Schema.GetComponentType<IsFontRequest>();
             foreach (Chunk chunk in world.Chunks)
             {
                 if (chunk.Definition.ContainsComponent(componentType))
                 {
                     ReadOnlySpan<uint> entities = chunk.Entities;
-                    Span<IsFontRequest> components = chunk.GetComponents<IsFontRequest>(componentType);
+                    ComponentEnumerator<IsFontRequest> components = chunk.GetComponents<IsFontRequest>(componentType);
                     for (int i = 0; i < entities.Length; i++)
                     {
                         ref IsFontRequest request = ref components[i];
@@ -64,7 +73,7 @@ namespace Fonts.Systems
                         if (request.status == IsFontRequest.Status.Loading)
                         {
                             IsFontRequest dataRequest = request;
-                            if (TryLoadFont(font, dataRequest, simulator))
+                            if (TryLoadFont(font, dataRequest, context))
                             {
                                 Trace.WriteLine($"Font `{font}` has been loaded");
 
@@ -88,25 +97,8 @@ namespace Fonts.Systems
             PerformOperations(world);
         }
 
-        void ISystem.Finish(in SystemContainer systemContainer, in World world)
+        readonly void ISystem.Finish(in SystemContext context, in World world)
         {
-            if (systemContainer.World == world)
-            {
-                while (operations.TryPop(out Operation operation))
-                {
-                    operation.Dispose();
-                }
-
-                operations.Dispose();
-                foreach (Entity font in fontFaces.Keys)
-                {
-                    fontFaces[font].Dispose();
-                }
-
-                fontFaces.Dispose();
-                fontVersions.Dispose();
-                freeType.Dispose();
-            }
         }
 
         private readonly void PerformOperations(World world)
@@ -121,12 +113,12 @@ namespace Fonts.Systems
         /// <summary>
         /// Makes sure that the entity has the latest info about the font.
         /// </summary>
-        private readonly bool TryLoadFont(Entity font, IsFontRequest request, Simulator simulator)
+        private readonly bool TryLoadFont(Entity font, IsFontRequest request, SystemContext context)
         {
             if (!fontFaces.TryGetValue(font, out Face face))
             {
                 LoadData message = new(font.world, request.address);
-                if (simulator.TryHandleMessage(ref message) != default)
+                if (context.TryHandleMessage(ref message) != default)
                 {
                     if (message.TryGetBytes(out ReadOnlySpan<byte> data))
                     {
