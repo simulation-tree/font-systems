@@ -10,8 +10,8 @@ namespace Fonts.Systems.Tests
     {
         static FontSystemsTests()
         {
-            TypeRegistry.Load<DataTypeBank>();
-            TypeRegistry.Load<FontsTypeBank>();
+            MetadataRegistry.Load<DataTypeBank>();
+            MetadataRegistry.Load<FontsTypeBank>();
         }
 
         protected override void SetUp()
