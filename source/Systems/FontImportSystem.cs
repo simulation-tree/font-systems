@@ -182,7 +182,7 @@ namespace Fonts.Systems
             }
 
             //collect glyph textures for each char
-            int referenceCount = font.References.Length;
+            int referenceCount = font.ReferenceCount;
             Span<Kerning> kerningBuffer = stackalloc Kerning[96];
             int kerningCount = 0;
             using Array<FontGlyph> glyphsBuffer = new(GlyphCount);
