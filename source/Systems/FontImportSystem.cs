@@ -6,6 +6,7 @@ using Simulation;
 using System;
 using System.Diagnostics;
 using System.Runtime.CompilerServices;
+using Unmanaged;
 using Worlds;
 
 namespace Fonts.Systems
@@ -120,11 +121,11 @@ namespace Fonts.Systems
                 LoadData message = new(font.world, request.address);
                 if (context.TryHandleMessage(ref message) != default)
                 {
-                    if (message.TryGetBytes(out ReadOnlySpan<byte> data))
+                    if (message.TryConsume(out ByteReader data))
                     {
-                        face = freeType.Load(data);
+                        face = freeType.Load(data.GetBytes());
                         fontFaces.Add(font, face);
-                        message.Dispose();
+                        data.Dispose();
                     }
                     else
                     {
