@@ -198,7 +198,7 @@ namespace Fonts.Systems
 
                 //create glyph entity
                 operation.ClearSelection();
-                operation.CreateEntity();
+                operation.CreateEntityAndSelect();
                 operation.AddComponent(new IsGlyph(c, metrics.Advance, metrics.HorizontalBearing, glyphOffset, metrics.Size));
                 operation.SetParent(font);
 
