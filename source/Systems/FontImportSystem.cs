@@ -12,7 +12,7 @@ using Worlds;
 namespace Fonts.Systems
 {
     [SkipLocalsInit]
-    public readonly partial struct FontImportSystem : ISystem
+    public class FontImportSystem : ISystem, IDisposable
     {
         public const int GlyphCount = 128;
         public const uint AtlasPadding = 4;
@@ -30,7 +30,7 @@ namespace Fonts.Systems
             operations = new(4);
         }
 
-        public readonly void Dispose()
+        public void Dispose()
         {
             while (operations.TryPop(out Operation operation))
             {
@@ -48,12 +48,9 @@ namespace Fonts.Systems
             freeType.Dispose();
         }
 
-        readonly void ISystem.Start(in SystemContext context, in World world)
+        void ISystem.Update(Simulator simulator, double deltaTime)
         {
-        }
-
-        void ISystem.Update(in SystemContext context, in World world, in TimeSpan delta)
-        {
+            World world = simulator.world;
             int componentType = world.Schema.GetComponentType<IsFontRequest>();
             foreach (Chunk chunk in world.Chunks)
             {
@@ -74,7 +71,7 @@ namespace Fonts.Systems
                         if (request.status == IsFontRequest.Status.Loading)
                         {
                             IsFontRequest dataRequest = request;
-                            if (TryLoadFont(font, dataRequest, context))
+                            if (TryLoadFont(font, dataRequest, simulator))
                             {
                                 Trace.WriteLine($"Font `{font}` has been loaded");
 
@@ -83,7 +80,7 @@ namespace Fonts.Systems
                             }
                             else
                             {
-                                request.duration += delta;
+                                request.duration += deltaTime;
                                 if (request.duration >= request.timeout)
                                 {
                                     Trace.TraceError($"Font `{font}` could not be loaded");
@@ -98,11 +95,7 @@ namespace Fonts.Systems
             PerformOperations(world);
         }
 
-        readonly void ISystem.Finish(in SystemContext context, in World world)
-        {
-        }
-
-        private readonly void PerformOperations(World world)
+        private void PerformOperations(World world)
         {
             while (operations.TryPop(out Operation operation))
             {
@@ -114,23 +107,17 @@ namespace Fonts.Systems
         /// <summary>
         /// Makes sure that the entity has the latest info about the font.
         /// </summary>
-        private readonly bool TryLoadFont(Entity font, IsFontRequest request, SystemContext context)
+        private bool TryLoadFont(Entity font, IsFontRequest request, Simulator simulator)
         {
             if (!fontFaces.TryGetValue(font, out Face face))
             {
                 LoadData message = new(font.world, request.address);
-                if (context.TryHandleMessage(ref message) != default)
+                simulator.Broadcast(ref message);
+                if (message.TryConsume(out ByteReader data))
                 {
-                    if (message.TryConsume(out ByteReader data))
-                    {
-                        face = freeType.Load(data.GetBytes());
-                        fontFaces.Add(font, face);
-                        data.Dispose();
-                    }
-                    else
-                    {
-                        return false;
-                    }
+                    face = freeType.Load(data.GetBytes());
+                    fontFaces.Add(font, face);
+                    data.Dispose();
                 }
                 else
                 {
@@ -160,7 +147,7 @@ namespace Fonts.Systems
             return true;
         }
 
-        private readonly void LoadGlyphs(Entity font, Face face, ref Operation operation)
+        private void LoadGlyphs(Entity font, Face face, ref Operation operation)
         {
             if (font.TryGetArray(out Values<FontGlyph> existingList))
             {
