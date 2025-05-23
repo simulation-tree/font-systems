@@ -17,14 +17,14 @@ namespace Fonts.Systems.Tests
         protected override void SetUp()
         {
             base.SetUp();
-            simulator.Add(new DataImportSystem());
-            simulator.Add(new FontImportSystem());
+            Simulator.Add(new DataImportSystem());
+            Simulator.Add(new FontImportSystem());
         }
 
         protected override void TearDown()
         {
-            simulator.Remove<FontImportSystem>();
-            simulator.Remove<DataImportSystem>();
+            Simulator.Remove<FontImportSystem>();
+            Simulator.Remove<DataImportSystem>();
             base.TearDown();
         }
 

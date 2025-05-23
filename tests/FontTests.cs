@@ -9,7 +9,7 @@ namespace Fonts.Systems.Tests
         public async Task ImportArialFont(CancellationToken cancellation)
         {
             Font font = new(world, "Arial.otf");
-            await font.UntilCompliant(Update, cancellation);
+            await font.UntilCompliant(Simulator.Update, cancellation);
 
             Assert.That(font.FamilyName.ToString(), Is.EqualTo("Arial"));
             Assert.That(font.GlyphCount, Is.GreaterThan(0));
