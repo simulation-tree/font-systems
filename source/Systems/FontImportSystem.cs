@@ -18,50 +18,49 @@ namespace Fonts.Systems
         public const uint AtlasPadding = 4;
 
         private readonly Library freeType;
-        private readonly Dictionary<Entity, uint> fontVersions;
-        private readonly Dictionary<Entity, Face> fontFaces;
-        private readonly Stack<Operation> operations;
+        private readonly Dictionary<uint, Face> fontFaces;
+        private readonly Operation operation;
+        private readonly int requestType;
+        private readonly int fontType;
+        private readonly int glyphArrayType;
 
-        public FontImportSystem()
+        public FontImportSystem(Simulator simulator)
         {
             freeType = new();
-            fontVersions = new(4);
             fontFaces = new(4);
-            operations = new(4);
+            operation = new();
+
+            Schema schema = simulator.world.Schema;
+            requestType = schema.GetComponentType<IsFontRequest>();
+            fontType = schema.GetComponentType<IsFont>();
+            glyphArrayType = schema.GetArrayType<FontGlyph>();
         }
 
         public void Dispose()
         {
-            while (operations.TryPop(out Operation operation))
-            {
-                operation.Dispose();
-            }
-
-            operations.Dispose();
+            operation.Dispose();
             foreach (Face face in fontFaces.Values)
             {
                 face.Dispose();
             }
 
             fontFaces.Dispose();
-            fontVersions.Dispose();
             freeType.Dispose();
         }
 
         void ISystem.Update(Simulator simulator, double deltaTime)
         {
             World world = simulator.world;
-            int componentType = world.Schema.GetComponentType<IsFontRequest>();
             foreach (Chunk chunk in world.Chunks)
             {
-                if (chunk.Definition.ContainsComponent(componentType))
+                if (chunk.Definition.ContainsComponent(requestType))
                 {
                     ReadOnlySpan<uint> entities = chunk.Entities;
-                    ComponentEnumerator<IsFontRequest> components = chunk.GetComponents<IsFontRequest>(componentType);
+                    ComponentEnumerator<IsFontRequest> components = chunk.GetComponents<IsFontRequest>(requestType);
                     for (int i = 0; i < entities.Length; i++)
                     {
                         ref IsFontRequest request = ref components[i];
-                        Entity font = new(world, entities[i]);
+                        uint font = entities[i];
                         if (request.status == IsFontRequest.Status.Submitted)
                         {
                             request.status = IsFontRequest.Status.Loading;
@@ -70,13 +69,10 @@ namespace Fonts.Systems
 
                         if (request.status == IsFontRequest.Status.Loading)
                         {
-                            IsFontRequest dataRequest = request;
-                            if (TryLoadFont(font, dataRequest, simulator))
+                            if (TryLoadFont(world, font, request, simulator))
                             {
                                 Trace.WriteLine($"Font `{font}` has been loaded");
-
-                                //todo: being done this way because reference to the request may have shifted
-                                font.SetComponent(dataRequest.BecomeLoaded());
+                                request.status = IsFontRequest.Status.Loaded;
                             }
                             else
                             {
@@ -92,26 +88,21 @@ namespace Fonts.Systems
                 }
             }
 
-            PerformOperations(world);
-        }
-
-        private void PerformOperations(World world)
-        {
-            while (operations.TryPop(out Operation operation))
+            if (operation.Count > 0)
             {
                 operation.Perform(world);
-                operation.Dispose();
+                operation.Reset();
             }
         }
 
         /// <summary>
         /// Makes sure that the entity has the latest info about the font.
         /// </summary>
-        private bool TryLoadFont(Entity font, IsFontRequest request, Simulator simulator)
+        private bool TryLoadFont(World world, uint font, IsFontRequest request, Simulator simulator)
         {
             if (!fontFaces.TryGetValue(font, out Face face))
             {
-                LoadData message = new(font.world, request.address);
+                LoadData message = new(world, request.address);
                 simulator.Broadcast(ref message);
                 if (message.TryConsume(out ByteReader data))
                 {
@@ -128,8 +119,7 @@ namespace Fonts.Systems
             uint pixelSize = request.pixelSize;
             face.SetPixelSize(pixelSize, pixelSize);
 
-            Operation operation = new();
-            operation.SelectEntity(font);
+            operation.SetSelectedEntity(font);
 
             //set metrics
             operation.AddOrSetComponent(new FontMetrics(face.Height));
@@ -139,17 +129,16 @@ namespace Fonts.Systems
             int length = face.CopyFamilyName(familyName);
             operation.AddOrSetComponent(new FontName(familyName[..length]));
 
-            font.TryGetComponent(out IsFont component);
+            world.TryGetComponent(font, fontType, out IsFont component);
             operation.AddOrSetComponent(new IsFont(component.version + 1, pixelSize));
 
-            LoadGlyphs(font, face, ref operation);
-            operations.Push(operation);
+            LoadGlyphs(world, font, face);
             return true;
         }
 
-        private void LoadGlyphs(Entity font, Face face, ref Operation operation)
+        private void LoadGlyphs(World world, uint entity, Face face)
         {
-            if (font.TryGetArray(out Values<FontGlyph> existingList))
+            if (world.TryGetArray(entity, glyphArrayType, out Values<FontGlyph> existingList))
             {
                 //get glyph collection and reset to empty
                 foreach (FontGlyph oldGlyph in existingList)
@@ -162,7 +151,7 @@ namespace Fonts.Systems
                 //todo: maybe have an operation that removes referenced entities and destroyed them at the same time?
                 foreach (FontGlyph oldGlyph in existingList)
                 {
-                    uint glyphEntity = font.GetReference(oldGlyph.value);
+                    uint glyphEntity = world.GetReference(entity, oldGlyph.value);
                     operation.SelectEntity(glyphEntity);
                 }
 
@@ -170,7 +159,7 @@ namespace Fonts.Systems
             }
 
             //collect glyph textures for each char
-            int referenceCount = font.ReferenceCount;
+            int referenceCount = world.GetReferenceCount(entity);
             Span<Kerning> kerningBuffer = stackalloc Kerning[96];
             int kerningCount = 0;
             using Array<FontGlyph> glyphsBuffer = new(GlyphCount);
@@ -187,7 +176,7 @@ namespace Fonts.Systems
                 operation.ClearSelection();
                 operation.CreateEntityAndSelect();
                 operation.AddComponent(new IsGlyph(c, metrics.Advance, metrics.HorizontalBearing, glyphOffset, metrics.Size));
-                operation.SetParent(font);
+                operation.SetParent(entity);
 
                 kerningCount = 0;
                 for (uint n = 32; n < GlyphCount; n++)
@@ -202,8 +191,7 @@ namespace Fonts.Systems
                 operation.CreateArray(kerningBuffer.Slice(0, kerningCount));
 
                 rint glyphReference = (rint)(referenceCount + i + 1);
-                operation.ClearSelection();
-                operation.SelectEntity(font);
+                operation.SetSelectedEntity(entity);
                 operation.AddReferenceTowardsPreviouslyCreatedEntity(0);
                 glyphsBuffer[i] = new(glyphReference);
             }
