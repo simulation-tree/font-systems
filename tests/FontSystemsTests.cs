@@ -1,4 +1,5 @@
 ﻿using Data;
+using Data.Messages;
 using Data.Systems;
 using Simulation.Tests;
 using Types;
@@ -8,6 +9,8 @@ namespace Fonts.Systems.Tests
 {
     public abstract class FontSystemsTests : SimulationTests
     {
+        public World world;
+
         static FontSystemsTests()
         {
             MetadataRegistry.Load<DataMetadataBank>();
@@ -17,23 +20,25 @@ namespace Fonts.Systems.Tests
         protected override void SetUp()
         {
             base.SetUp();
-            Simulator.Add(new DataImportSystem(Simulator));
-            Simulator.Add(new FontImportSystem(Simulator));
+            Schema schema = new();
+            schema.Load<DataSchemaBank>();
+            schema.Load<FontsSchemaBank>();
+            world = new(schema);
+            Simulator.Add(new DataImportSystem(Simulator, world));
+            Simulator.Add(new FontImportSystem(Simulator, world));
         }
 
         protected override void TearDown()
         {
             Simulator.Remove<FontImportSystem>();
             Simulator.Remove<DataImportSystem>();
+            world.Dispose();
             base.TearDown();
         }
 
-        protected override Schema CreateSchema()
+        protected override void Update(double deltaTime)
         {
-            Schema schema = base.CreateSchema();
-            schema.Load<DataSchemaBank>();
-            schema.Load<FontsSchemaBank>();
-            return schema;
+            Simulator.Broadcast(new DataUpdate(deltaTime));
         }
     }
 }
