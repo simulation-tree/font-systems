@@ -1,34 +1,43 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
-    <PropertyGroup>
-        <TargetFramework>net9.0</TargetFramework>
-        <RootNamespace>Fonts.Systems</RootNamespace>
-        <ImplicitUsings>disable</ImplicitUsings>
-        <Nullable>enable</Nullable>
-        <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
-        <Title>Font Systems</Title>
-        <Authors>popcron</Authors>
-        <Company>simulation-tree</Company>
-        <RepositoryUrl>https://github.com/simulation-tree/font-systems</RepositoryUrl>
-        <IsAotCompatible>True</IsAotCompatible>
-        <IsTrimmable>True</IsTrimmable>
-        <TreatWarningsAsErrors>True</TreatWarningsAsErrors>
-        <PackageId/>
-    </PropertyGroup>
+  <PropertyGroup>
+    <TargetFramework>net9.0</TargetFramework>
+    <RootNamespace>Fonts.Systems</RootNamespace>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <Title>Font Systems</Title>
+    <Authors>popcron</Authors>
+    <Company>simulation-tree</Company>
+    <RepositoryUrl>https://github.com/simulation-tree/font-systems</RepositoryUrl>
+    <IsAotCompatible>True</IsAotCompatible>
+    <IsTrimmable>True</IsTrimmable>
+    <TreatWarningsAsErrors>True</TreatWarningsAsErrors>
+    <IncludeBuildOutput>false</IncludeBuildOutput>
+    <SuppressDependenciesWhenPacking>true</SuppressDependenciesWhenPacking>
+  </PropertyGroup>
 
-    <ItemGroup>
-        <ProjectReference Include="..\..\data\core\Data.Core.csproj"/>
-        <ProjectReference Include="..\..\fonts\source\Fonts.csproj"/>
-        <ProjectReference Include="..\..\freetype\source\FreeType.csproj"/>
-        <ProjectReference Include="..\..\simulation\core\Simulation.Core.csproj"/>
-        <ProjectReference Include="..\..\simulation\generator\Simulation.Generator.csproj">
-            <OutputItemType>Analyzer</OutputItemType>
-            <ReferenceOutputAssembly>false</ReferenceOutputAssembly>
-        </ProjectReference>
-        <ProjectReference Include="..\..\worlds\generator\Worlds.Generator.csproj">
-            <OutputItemType>Analyzer</OutputItemType>
-            <ReferenceOutputAssembly>false</ReferenceOutputAssembly>
-        </ProjectReference>
-    </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\..\data\core\Data.Core.csproj"/>
+    <ProjectReference Include="..\..\fonts\source\Fonts.csproj"/>
+    <ProjectReference Include="..\..\freetype\source\FreeType.csproj"/>
+    <ProjectReference Include="..\..\simulation\core\Simulation.Core.csproj"/>
+    <ProjectReference Include="..\..\simulation\generator\Simulation.Generator.csproj">
+      <OutputItemType>Analyzer</OutputItemType>
+      <ReferenceOutputAssembly>false</ReferenceOutputAssembly>
+    </ProjectReference>
+    <ProjectReference Include="..\..\worlds\generator\Worlds.Generator.csproj">
+      <OutputItemType>Analyzer</OutputItemType>
+      <ReferenceOutputAssembly>false</ReferenceOutputAssembly>
+    </ProjectReference>
+  </ItemGroup>
+
+  <ItemGroup>
+    <Content Include="bin/Debug/net9.0/Fonts.Systems.dll" Pack="true" PackagePath="tools/debug/Fonts.Systems.dll" Visible="false"/>
+    <Content Include="bin/Debug/net9.0/Fonts.Systems.xml" Pack="true" PackagePath="tools/debug/Fonts.Systems.xml" Visible="false"/>
+    <Content Include="bin/Release/net9.0/Fonts.Systems.dll" Pack="true" PackagePath="tools/release/Fonts.Systems.dll" Visible="false"/>
+    <Content Include="bin/Release/net9.0/Fonts.Systems.xml" Pack="true" PackagePath="tools/release/Fonts.Systems.xml" Visible="false"/>
+    <Content Include="build/Fonts.Systems.targets" Pack="true" PackagePath="build/Fonts.Systems.targets" Visible="false"/>
+  </ItemGroup>
 
 </Project>
