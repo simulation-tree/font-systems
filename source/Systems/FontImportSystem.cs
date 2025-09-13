@@ -64,7 +64,7 @@ namespace Fonts.Systems
             for (int c = 0; c < chunks.Length; c++)
             {
                 Chunk chunk = chunks[c];
-                if (chunk.Definition.ContainsComponent(requestType))
+                if (chunk.componentTypes.Contains(requestType))
                 {
                     ReadOnlySpan<uint> entities = chunk.Entities;
                     ComponentEnumerator<IsFontRequest> components = chunk.GetComponents<IsFontRequest>(requestType);
