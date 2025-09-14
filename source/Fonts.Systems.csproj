@@ -15,6 +15,7 @@
     <TreatWarningsAsErrors>True</TreatWarningsAsErrors>
     <IncludeBuildOutput>false</IncludeBuildOutput>
     <OutDir>bin/$(TargetFramework)/$(Configuration)</OutDir>
+    <PackageId>SimulationTree.Fonts.Systems</PackageId>
   </PropertyGroup>
 
   <ItemGroup>
